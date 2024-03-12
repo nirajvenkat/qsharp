@@ -713,6 +713,10 @@ impl With<'_> {
         }
     }
 
+    /// Resolves the given AST path to the corresponding HIR resolution.
+    ///
+    /// Looks up the path ID in the name resolution results
+    /// and returns it as an HIR resolution
     fn lower_path(&mut self, path: &ast::Path) -> hir::Res {
         match self.names.get(path.id) {
             Some(&resolve::Res::Item(item, _)) => hir::Res::Item(item),
@@ -722,6 +726,9 @@ impl With<'_> {
         }
     }
 
+    /// Lowers an AST identifier to an HIR identifier.
+    /// This function creates a new HIR identifier with the same name and span
+    /// as the AST identifier, but with a fresh HIR node ID.
     fn lower_ident(&mut self, ident: &ast::Ident) -> hir::Ident {
         hir::Ident {
             id: self.lower_id(ident.id),

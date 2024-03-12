@@ -5,6 +5,7 @@
 //! The blocks, exprs, pats, and stmts from HIR are replaced with IDs that index into
 //! the corresponding lookups in the package. This allows for traversal without
 //! leaking references to the FIR nodes.
+//! This is used by the evaluator and debugger.
 
 #![warn(missing_docs)]
 

@@ -74,14 +74,15 @@ impl FromIterator<Global> for Table {
     }
 }
 
-pub struct PackageIter<'a> {
+/// Iterates through the contents of a package. Only exposes the public/accessible items.
+pub struct PackageContentsIter<'a> {
     id: Option<PackageId>,
     package: &'a Package,
     items: index_map::Values<'a, Item>,
     next: Option<Global>,
 }
 
-impl PackageIter<'_> {
+impl PackageContentsIter<'_> {
     fn global_item(&mut self, item: &Item) -> Option<Global> {
         let parent = item.parent.map(|parent| {
             &self
@@ -136,7 +137,7 @@ impl PackageIter<'_> {
     }
 }
 
-impl<'a> Iterator for PackageIter<'a> {
+impl<'a> Iterator for PackageContentsIter<'a> {
     type Item = Global;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -154,8 +155,8 @@ impl<'a> Iterator for PackageIter<'a> {
 }
 
 #[must_use]
-pub fn iter_package(id: Option<PackageId>, package: &Package) -> PackageIter {
-    PackageIter {
+pub fn iter_package(id: Option<PackageId>, package: &Package) -> PackageContentsIter {
+    PackageContentsIter {
         id,
         package,
         items: package.items.values(),
