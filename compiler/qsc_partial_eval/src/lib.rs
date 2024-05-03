@@ -306,8 +306,8 @@ impl<'a> PartialEvaluator<'a> {
         match &expr.kind {
             ExprKind::Array(exprs) => self.eval_expr_array(exprs),
             ExprKind::ArrayLit(_) => panic!("array of literal values should always be classical"),
-            ExprKind::ArrayRepeat(_, _) => {
-                Err(Error::Unimplemented("Array Repeat".to_string(), expr.span))
+            ExprKind::ArrayRepeat(value_expr_id, size_expr_id) => {
+                self.eval_expr_array_repeat(*value_expr_id, *size_expr_id)
             }
             ExprKind::Assign(_, _) => Err(Error::Unimplemented(
                 "Assignment Expr".to_string(),
@@ -396,6 +396,37 @@ impl<'a> PartialEvaluator<'a> {
                 Ok(EvalControlFlow::Continue(Value::unit()))
             }
         }
+    }
+
+    fn eval_expr_array_repeat(
+        &mut self,
+        value_expr_id: ExprId,
+        size_expr_id: ExprId,
+    ) -> Result<EvalControlFlow, Error> {
+        // Try to evaluate both the value and size expressions to get their value, short-circuiting execution if any of the
+        // expressions is a return.
+        let value_control_flow = self.try_eval_expr(value_expr_id)?;
+        let EvalControlFlow::Continue(value) = value_control_flow else {
+            let value_expr = self.get_expr(value_expr_id);
+            return Err(Error::Unexpected(
+                "embedded return in array".to_string(),
+                value_expr.span,
+            ));
+        };
+        let size_control_flow = self.try_eval_expr(size_expr_id)?;
+        let EvalControlFlow::Continue(size) = size_control_flow else {
+            let size_expr = self.get_expr(size_expr_id);
+            return Err(Error::Unexpected(
+                "embedded return in array".to_string(),
+                size_expr.span,
+            ));
+        };
+
+        // We assume the size of the array is a classical value because otherwise it would have been rejected before
+        // getting to the partial evaluation stage.
+        let size = size.unwrap_int();
+        let values = vec![value; TryFrom::try_from(size).expect("could not convert size value")];
+        Ok(EvalControlFlow::Continue(Value::Array(values.into())))
     }
 
     #[allow(clippy::similar_names)]
