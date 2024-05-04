@@ -541,7 +541,7 @@ impl State {
         step: StepAction,
     ) -> Result<StepResult, (Error, Vec<Frame>)> {
         let current_frame = self.call_stack.len();
-
+        println!("> eval");
         while !self.exec_graph_stack.is_empty() {
             let exec_graph = self
                 .exec_graph_stack
@@ -554,6 +554,7 @@ impl State {
                     continue;
                 }
                 Some(ExecGraphNode::Expr(expr)) => {
+                    println!("- ExecGraphNode::Expr({expr})");
                     self.idx += 1;
                     self.eval_expr(env, sim, globals, out, *expr)
                         .map_err(|e| (e, self.get_stack_frames()))?;
@@ -684,9 +685,11 @@ impl State {
         out: &mut impl Receiver,
         expr: ExprId,
     ) -> Result<(), Error> {
+        println!("> eval_expr({expr})");
         let expr = globals.get_expr((self.package, expr).into());
         self.current_span = expr.span;
-
+        println!("- expr");
+        println!("{expr}");
         match &expr.kind {
             ExprKind::Array(arr) => self.eval_arr(arr.len()),
             ExprKind::ArrayLit(arr) => self.eval_arr_lit(arr, globals),

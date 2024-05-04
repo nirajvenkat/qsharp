@@ -157,6 +157,15 @@ impl Scope {
     }
 
     /// Gets the value of a hybrid local variable.
+    pub fn get_classical_local_value(&self, local_var_id: LocalVarId) -> &Value {
+        &self
+            .env
+            .get(local_var_id)
+            .expect("local classcial variable value does not exist")
+            .value
+    }
+
+    /// Gets the value of a hybrid local variable.
     pub fn get_hybrid_local_value(&self, local_var_id: LocalVarId) -> &Value {
         self.hybrid_vars
             .get(&local_var_id)

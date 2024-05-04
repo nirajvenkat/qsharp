@@ -175,10 +175,19 @@ impl<'a> PartialEvaluator<'a> {
     }
 
     fn bind_value_to_mutable_ident(&mut self, ident: &Ident, value: Value) {
+        println!("> bind_value_to_mutable_ident");
         // If the value is not a variable, bind it to the classical map.
         if !matches!(value, Value::Var(_)) {
             self.bind_value_in_classical_map(ident, &value);
         }
+
+        let vars = self
+            .eval_context
+            .get_current_scope()
+            .env
+            .get_variables_in_top_frame();
+        println!("- variables in top frame");
+        println!("{vars:?}");
 
         // Always bind the value to the hybrid map but do it differently depending of the value type.
         let maybe_var_type = try_get_eval_var_type(&value);
@@ -196,6 +205,7 @@ impl<'a> PartialEvaluator<'a> {
     }
 
     fn bind_value_in_classical_map(&mut self, ident: &Ident, value: &Value) {
+        println!("> bind_value_in_classical_map");
         // Create a variable and bind it to the classical environment.
         let var = Variable {
             name: ident.name.clone(),
@@ -283,14 +293,21 @@ impl<'a> PartialEvaluator<'a> {
     }
 
     fn eval_classical_expr(&mut self, expr_id: ExprId) -> Result<EvalControlFlow, Error> {
+        println!("> eval_classical_expr({expr_id})");
         let current_package_id = self.get_current_package_id();
         let store_expr_id = StoreExprId::from((current_package_id, expr_id));
+        println!("- store_expr_id({store_expr_id:?})");
         let expr = self.package_store.get_expr(store_expr_id);
+        println!("- expr");
+        println!("{expr}");
         let scope_exec_graph = self.get_current_scope_exec_graph().clone();
         let scope = self.eval_context.get_current_scope_mut();
+        println!("- scope.package_id({})", scope.package_id);
+        let vars = scope.env.get_variables_in_top_frame();
+        println!("{vars:?}");
         let exec_graph = exec_graph_section(&scope_exec_graph, expr.exec_graph_range.clone());
         let mut state = State::new(current_package_id, exec_graph, None);
-        let eval_result = state.eval(
+        let classical_result = state.eval(
             self.package_store,
             &mut scope.env,
             &mut self.backend,
@@ -298,7 +315,7 @@ impl<'a> PartialEvaluator<'a> {
             &[],
             StepAction::Continue,
         );
-        match eval_result {
+        let eval_result = match classical_result {
             Ok(step_result) => {
                 let StepResult::Return(value) = step_result else {
                     panic!("evaluating a classical expression should always return a value");
@@ -314,7 +331,18 @@ impl<'a> PartialEvaluator<'a> {
                 Ok(eval_control_flow)
             }
             Err((error, _)) => Err(Error::EvaluationFailed(error.to_string(), expr.span)),
+        };
+
+        // If this was an assign expression, update the bindings in the hybrid side to keep them in sync and to insert
+        // store instructions if needed.
+        if let Ok(EvalControlFlow::Continue(_)) = eval_result {
+            let expr = self.get_expr(expr_id);
+            if let ExprKind::Assign(lhs_expr_id, _) = &expr.kind {
+                self.update_hybrid_bindings_from_classical_bindings(*lhs_expr_id)?;
+            }
         }
+
+        eval_result
     }
 
     fn eval_hybrid_expr(&mut self, expr_id: ExprId) -> Result<EvalControlFlow, Error> {
@@ -334,10 +362,9 @@ impl<'a> PartialEvaluator<'a> {
                 "Field Assignment Expr".to_string(),
                 expr.span,
             )),
-            ExprKind::AssignIndex(_, _, _) => Err(Error::Unimplemented(
-                "Assignment Index Expr".to_string(),
-                expr.span,
-            )),
+            ExprKind::AssignIndex(array_expr_id, index_expr_id, replace_expr_id) => {
+                self.eval_expr_assign_index(*array_expr_id, *index_expr_id, *replace_expr_id)
+            }
             ExprKind::AssignOp(_, _, _) => Err(Error::Unimplemented(
                 "Assignment Op Expr".to_string(),
                 expr.span,
@@ -433,6 +460,59 @@ impl<'a> PartialEvaluator<'a> {
         };
 
         self.update_hybrid_bindings(lhs_expr_id, rhs_value)?;
+        Ok(EvalControlFlow::Continue(Value::unit()))
+    }
+
+    fn eval_expr_assign_index(
+        &mut self,
+        array_expr_id: ExprId,
+        index_expr_id: ExprId,
+        replace_expr_id: ExprId,
+    ) -> Result<EvalControlFlow, Error> {
+        println!("> eval_expr_assign_index");
+        // Get the value of the array expression to use it as the basis to perform a replacement on.
+        println!("- try eval array expr");
+        let vars = self
+            .eval_context
+            .get_current_scope()
+            .env
+            .get_variables_in_top_frame();
+        println!("- variables in top frame");
+        println!("{vars:?}");
+        let array_control_flow = self.try_eval_expr(array_expr_id)?;
+        let EvalControlFlow::Continue(array_value) = array_control_flow else {
+            panic!("the array in sub-expression in an assign index expression is not expected to contain an embedded return");
+        };
+
+        // Try to evaluate the index and replace expressions to get their value, short-circuiting execution if any of
+        // the expressions is a return.
+        println!("- try eval index expr");
+        let index_control_flow = self.try_eval_expr(index_expr_id)?;
+        let EvalControlFlow::Continue(index_value) = index_control_flow else {
+            let index_expr = self.get_expr(index_expr_id);
+            return Err(Error::Unexpected(
+                "embedded return in assign index expression".to_string(),
+                index_expr.span,
+            ));
+        };
+        println!("- try eval replace expr");
+        let replace_control_flow = self.try_eval_expr(replace_expr_id)?;
+        let EvalControlFlow::Continue(replace_value) = replace_control_flow else {
+            let replace_expr = self.get_expr(replace_expr_id);
+            return Err(Error::Unexpected(
+                "embedded return in assign index expression".to_string(),
+                replace_expr.span,
+            ));
+        };
+
+        // Replace the value at the corresponding index and update the array binding.
+        let index: usize = index_value
+            .unwrap_int()
+            .try_into()
+            .expect("could not convert array index into usize");
+        let mut array = (*array_value.unwrap_array()).clone();
+        let _ = std::mem::replace(&mut array[index], replace_value);
+        self.update_hybrid_bindings(array_expr_id, Value::Array(array.into()))?;
         Ok(EvalControlFlow::Continue(Value::unit()))
     }
 
@@ -1136,6 +1216,7 @@ impl<'a> PartialEvaluator<'a> {
     }
 
     fn try_eval_expr(&mut self, expr_id: ExprId) -> Result<EvalControlFlow, Error> {
+        println!("> try_eval_expr({expr_id})");
         // An expression is evaluated differently depending on whether it is purely classical or hybrid.
         if self.is_classical_expr(expr_id) {
             self.eval_classical_expr(expr_id)
@@ -1228,6 +1309,33 @@ impl<'a> PartialEvaluator<'a> {
                 .get_current_scope_mut()
                 .update_hybrid_local_value(local_var_id, value);
         }
+        Ok(())
+    }
+
+    fn update_hybrid_bindings_from_classical_bindings(
+        &mut self,
+        lhs_expr_id: ExprId,
+    ) -> Result<(), Error> {
+        let lhs_expr = &self.get_expr(lhs_expr_id);
+        match &lhs_expr.kind {
+            ExprKind::Hole => {
+                // Nothing to bind to.
+            }
+            ExprKind::Var(Res::Local(local_var_id), _) => {
+                let classical_value = self
+                    .eval_context
+                    .get_current_scope()
+                    .get_classical_local_value(*local_var_id)
+                    .clone();
+                self.update_hybrid_local(lhs_expr, *local_var_id, classical_value)?;
+            }
+            ExprKind::Tuple(exprs) => {
+                for expr_id in exprs {
+                    self.update_hybrid_bindings_from_classical_bindings(*expr_id)?;
+                }
+            }
+            _ => unreachable!("unassignable pattern should be disallowed by compiler"),
+        };
         Ok(())
     }
 
@@ -1481,6 +1589,7 @@ fn map_eval_value_to_rir_operand(value: &Value) -> Operand {
             )),
             val::Result::Val(bool) => Operand::Literal(Literal::Bool(*bool)),
         },
+        Value::Var(var) => Operand::Variable(map_eval_var_to_rir_var(*var)),
         _ => panic!("{value} cannot be mapped to a RIR operand"),
     }
 }

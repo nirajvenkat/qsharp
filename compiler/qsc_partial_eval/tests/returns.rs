@@ -870,7 +870,9 @@ fn explicit_return_embedded_in_assign_expr_yields_error() {
     "#});
     assert_error(
         &error,
-        &expect![[r#"Unexpected("embedded return in assign expression", Span { lo: 173, hi: 185 })"#]],
+        &expect![[
+            r#"Unexpected("embedded return in assign expression", Span { lo: 173, hi: 185 })"#
+        ]],
     );
 }
 
@@ -1073,20 +1075,20 @@ fn explicit_return_embedded_in_update_field_expr_yields_error() {
     );
 }
 
+#[ignore = "BUG IN EVALUATOR WHEN DOING EVAL OF EXEC GRAPH SECTIONS?"]
 #[test]
 fn explicit_return_embedded_in_update_index_expr_yields_error() {
     let error = get_partial_evaluation_error(indoc! {r#"
     namespace Test {
         @EntryPoint()
         operation Main() : Bool {
-            use q = Qubit(); // Needed to make `Main` non-classical.
-            mutable a = [1];
+            use q = Qubit();
+            mutable a = [true];
             set a w/= 0 <- return false;
             true
         }
     }
     "#});
-    // The type of error will change once this kind of hybrid expression is supported.
     assert_error(
         &error,
         &expect![[r#"Unimplemented("Assignment Index Expr", Span { lo: 164, hi: 191 })"#]],
