@@ -18,15 +18,15 @@ use qsc_data_structures::{functors::FunctorApp, target::TargetCapabilityFlags};
 use qsc_eval::{
     self, exec_graph_section,
     output::GenericReceiver,
-    val::{self, Value, Var},
+    val::{self, Value, Var, VarTy},
     State, StepAction, StepResult, Variable,
 };
 use qsc_fir::{
     fir::{
         self, BinOp, Block, BlockId, CallableDecl, CallableImpl, ExecGraphNode, Expr, ExprId,
-        ExprKind, Global, Ident, PackageId, PackageStore, PackageStoreLookup, Pat, PatId, PatKind,
-        Res, SpecDecl, SpecImpl, Stmt, StmtId, StmtKind, StoreBlockId, StoreExprId, StoreItemId,
-        StorePatId, StoreStmtId,
+        ExprKind, Global, Ident, LocalVarId, Mutability, PackageId, PackageStore,
+        PackageStoreLookup, Pat, PatId, PatKind, Res, SpecDecl, SpecImpl, Stmt, StmtId, StmtKind,
+        StoreBlockId, StoreExprId, StoreItemId, StorePatId, StoreStmtId,
     },
     ty::{Prim, Ty},
 };
@@ -137,17 +137,17 @@ impl<'a> PartialEvaluator<'a> {
         }
     }
 
-    fn bind_value_to_pat(&mut self, pat_id: PatId, value: Value) {
+    fn bind_value_to_pat(&mut self, mutability: Mutability, pat_id: PatId, value: Value) {
         let pat = self.get_pat(pat_id);
         match &pat.kind {
             PatKind::Bind(ident) => {
-                self.bind_value_to_ident(ident, value);
+                self.bind_value_to_ident(mutability, ident, value);
             }
             PatKind::Tuple(pats) => {
-                let tup = value.unwrap_tuple();
-                assert!(pats.len() == tup.len());
-                for (pat_id, value) in pats.iter().zip(tup.iter()) {
-                    self.bind_value_to_pat(*pat_id, value.clone());
+                let tuple = value.unwrap_tuple();
+                assert!(pats.len() == tuple.len());
+                for (pat_id, value) in pats.iter().zip(tuple.iter()) {
+                    self.bind_value_to_pat(mutability, *pat_id, value.clone());
                 }
             }
             PatKind::Discard => {
@@ -156,10 +156,62 @@ impl<'a> PartialEvaluator<'a> {
         }
     }
 
-    fn bind_value_to_ident(&mut self, ident: &Ident, value: Value) {
+    fn bind_value_to_ident(&mut self, mutability: Mutability, ident: &Ident, value: Value) {
+        // We do slightly different things depending on the mutability of the identifier.
+        match mutability {
+            Mutability::Immutable => self.bind_value_to_immutable_ident(ident, value),
+            Mutability::Mutable => self.bind_value_to_mutable_ident(ident, value),
+        };
+    }
+
+    fn bind_value_to_immutable_ident(&mut self, ident: &Ident, value: Value) {
+        // If the value is not a variable, bind it to the classical map.
+        if !matches!(value, Value::Var(_)) {
+            self.bind_value_in_classical_map(ident, &value);
+        }
+
+        // Always bind the value to the hybrid map.
+        self.bind_value_in_hybrid_map(ident, value);
+    }
+
+    fn bind_value_to_mutable_ident(&mut self, ident: &Ident, value: Value) {
+        // If the value is not a variable, bind it to the classical map.
+        if !matches!(value, Value::Var(_)) {
+            self.bind_value_in_classical_map(ident, &value);
+        }
+
+        // Always bind the value to the hybrid map but do it differently depending of the value type.
+        let maybe_var_type = try_get_eval_var_type(&value);
+        if let Some(var_type) = maybe_var_type {
+            // Get a variable to store into.
+            let value_operand = map_eval_value_to_rir_operand(&value);
+            let eval_var = self.get_or_create_variable(ident.id, var_type);
+            let rir_var = map_eval_var_to_rir_var(eval_var);
+            // Insert a store instruction.
+            let store_ins = Instruction::Store(value_operand, rir_var);
+            self.get_current_rir_block_mut().0.push(store_ins);
+        } else {
+            self.bind_value_in_hybrid_map(ident, value);
+        }
+    }
+
+    fn bind_value_in_classical_map(&mut self, ident: &Ident, value: &Value) {
+        // Create a variable and bind it to the classical environment.
+        let var = Variable {
+            name: ident.name.clone(),
+            value: value.clone(),
+            span: ident.span,
+        };
+        let scope = self.eval_context.get_current_scope_mut();
+        scope.env.bind_variable_in_top_frame(ident.id, var);
+    }
+
+    fn bind_value_in_hybrid_map(&mut self, ident: &Ident, value: Value) {
+        // Insert the value into the hybrid vars map.
         self.eval_context
             .get_current_scope_mut()
-            .insert_local_var_value(ident.id, value);
+            .hybrid_vars
+            .insert(ident.id, value);
     }
 
     fn create_intrinsic_callable(
@@ -265,40 +317,6 @@ impl<'a> PartialEvaluator<'a> {
         }
     }
 
-    fn eval_classical_stmt(&mut self, stmt_id: StmtId) -> Result<EvalControlFlow, Error> {
-        let current_package_id = self.get_current_package_id();
-        let stmt = self.get_stmt(stmt_id);
-        let scope_exec_graph = self.get_current_scope_exec_graph().clone();
-        let scope = self.eval_context.get_current_scope_mut();
-        let exec_graph = exec_graph_section(&scope_exec_graph, stmt.exec_graph_range.clone());
-        let mut state = State::new(current_package_id, exec_graph, None);
-        let eval_result = state.eval(
-            self.package_store,
-            &mut scope.env,
-            &mut self.backend,
-            &mut GenericReceiver::new(&mut std::io::sink()),
-            &[],
-            StepAction::Continue,
-        );
-        match eval_result {
-            Ok(step_result) => {
-                let StepResult::Return(value) = step_result else {
-                    panic!("evaluating a classical expression should always return a value");
-                };
-
-                // Figure out the control flow kind.
-                let scope = self.eval_context.get_current_scope();
-                let eval_control_flow = if scope.has_classical_evaluator_returned() {
-                    EvalControlFlow::Return(value)
-                } else {
-                    EvalControlFlow::Continue(value)
-                };
-                Ok(eval_control_flow)
-            }
-            Err((error, _)) => Err(Error::EvaluationFailed(error.to_string(), stmt.span)),
-        }
-    }
-
     fn eval_hybrid_expr(&mut self, expr_id: ExprId) -> Result<EvalControlFlow, Error> {
         let current_package_id = self.get_current_package_id();
         let store_expr_id = StoreExprId::from((current_package_id, expr_id));
@@ -309,10 +327,9 @@ impl<'a> PartialEvaluator<'a> {
             ExprKind::ArrayRepeat(value_expr_id, size_expr_id) => {
                 self.eval_expr_array_repeat(*value_expr_id, *size_expr_id)
             }
-            ExprKind::Assign(_, _) => Err(Error::Unimplemented(
-                "Assignment Expr".to_string(),
-                expr.span,
-            )),
+            ExprKind::Assign(lhs_expr_id, rhs_expr_id) => {
+                self.eval_expr_assign(*lhs_expr_id, *rhs_expr_id)
+            }
             ExprKind::AssignField(_, _, _) => Err(Error::Unimplemented(
                 "Field Assignment Expr".to_string(),
                 expr.span,
@@ -370,34 +387,6 @@ impl<'a> PartialEvaluator<'a> {
         }
     }
 
-    fn eval_hybrid_stmt(&mut self, stmt_id: StmtId) -> Result<EvalControlFlow, Error> {
-        let stmt = self.get_stmt(stmt_id);
-        match stmt.kind {
-            StmtKind::Expr(expr_id) => self.try_eval_expr(expr_id),
-            StmtKind::Semi(expr_id) => {
-                let control_flow = self.try_eval_expr(expr_id)?;
-                match control_flow {
-                    EvalControlFlow::Continue(_) => Ok(EvalControlFlow::Continue(Value::unit())),
-                    EvalControlFlow::Return(_) => Ok(control_flow),
-                }
-            }
-            StmtKind::Local(_, pat_id, expr_id) => {
-                let control_flow = self.try_eval_expr(expr_id)?;
-                match control_flow {
-                    EvalControlFlow::Continue(value) => {
-                        self.bind_value_to_pat(pat_id, value);
-                        Ok(EvalControlFlow::Continue(Value::unit()))
-                    }
-                    EvalControlFlow::Return(_) => Ok(control_flow),
-                }
-            }
-            StmtKind::Item(_) => {
-                // Do nothing and return a continue unit value.
-                Ok(EvalControlFlow::Continue(Value::unit()))
-            }
-        }
-    }
-
     fn eval_expr_array_repeat(
         &mut self,
         value_expr_id: ExprId,
@@ -427,6 +416,24 @@ impl<'a> PartialEvaluator<'a> {
         let size = size.unwrap_int();
         let values = vec![value; TryFrom::try_from(size).expect("could not convert size value")];
         Ok(EvalControlFlow::Continue(Value::Array(values.into())))
+    }
+
+    fn eval_expr_assign(
+        &mut self,
+        lhs_expr_id: ExprId,
+        rhs_expr_id: ExprId,
+    ) -> Result<EvalControlFlow, Error> {
+        let rhs_control_flow = self.try_eval_expr(rhs_expr_id)?;
+        let EvalControlFlow::Continue(rhs_value) = rhs_control_flow else {
+            let rhs_expr = self.get_expr(rhs_expr_id);
+            return Err(Error::Unexpected(
+                "embedded return in assign expression".to_string(),
+                rhs_expr.span,
+            ));
+        };
+
+        self.update_hybrid_bindings(lhs_expr_id, rhs_value)?;
+        Ok(EvalControlFlow::Continue(Value::unit()))
     }
 
     #[allow(clippy::similar_names)]
@@ -495,7 +502,7 @@ impl<'a> PartialEvaluator<'a> {
         current_block.0.push(instruction);
 
         // Return the variable as a value.
-        let value = Value::Var(Var(variable_id.into()));
+        let value = Value::Var(map_rir_var_to_eval_var(variable));
         Ok(EvalControlFlow::Continue(value))
     }
 
@@ -726,10 +733,7 @@ impl<'a> PartialEvaluator<'a> {
 
         // Finally, we insert the branch instruction.
         let condition_value_var = condition_value.unwrap_var();
-        let condition_rir_var = rir::Variable {
-            variable_id: condition_value_var.0.into(),
-            ty: rir::Ty::Boolean,
-        };
+        let condition_rir_var = map_eval_var_to_rir_var(condition_value_var);
         let branch_ins =
             Instruction::Branch(condition_rir_var, if_true_block_id, if_false_block_id);
         self.get_program_block_mut(current_block_node.id)
@@ -738,7 +742,7 @@ impl<'a> PartialEvaluator<'a> {
 
         // Return the value of the if expression.
         let if_expr_value = if let Some(if_expr_var) = maybe_if_expr_var {
-            Value::Var(Var(if_expr_var.variable_id.into()))
+            Value::Var(map_rir_var_to_eval_var(if_expr_var))
         } else {
             Value::unit()
         };
@@ -847,7 +851,7 @@ impl<'a> PartialEvaluator<'a> {
             Res::Local(local_var_id) => self
                 .eval_context
                 .get_current_scope()
-                .get_local_var_value(*local_var_id)
+                .get_hybrid_local_value(*local_var_id)
                 .clone(),
         }
     }
@@ -994,12 +998,20 @@ impl<'a> PartialEvaluator<'a> {
         expr_generator_set.generate_application_compute_kind(&callable_scope.args_value_kind)
     }
 
-    fn get_stmt_compute_kind(&self, stmt_id: StmtId) -> ComputeKind {
-        let current_package_id = self.get_current_package_id();
-        let store_stmt_id = StoreStmtId::from((current_package_id, stmt_id));
-        let stmt_generator_set = self.compute_properties.get_stmt(store_stmt_id);
-        let callable_scope = self.eval_context.get_current_scope();
-        stmt_generator_set.generate_application_compute_kind(&callable_scope.args_value_kind)
+    fn get_or_create_variable(&mut self, local_var_id: LocalVarId, var_ty: VarTy) -> Var {
+        let current_scope = self.eval_context.get_current_scope_mut();
+        let entry = current_scope.hybrid_vars.entry(local_var_id);
+        let local_var_value = entry.or_insert(Value::Var({
+            let var_id = self.resource_manager.next_var();
+            Var {
+                id: var_id.into(),
+                ty: var_ty,
+            }
+        }));
+        let Value::Var(var) = local_var_value else {
+            panic!("value must be a variable");
+        };
+        *var
     }
 
     fn get_or_insert_callable(&mut self, callable: Callable) -> CallableId {
@@ -1026,11 +1038,6 @@ impl<'a> PartialEvaluator<'a> {
 
     fn is_classical_expr(&self, expr_id: ExprId) -> bool {
         let compute_kind = self.get_expr_compute_kind(expr_id);
-        matches!(compute_kind, ComputeKind::Classical)
-    }
-
-    fn is_classical_stmt(&self, stmt_id: StmtId) -> bool {
-        let compute_kind = self.get_stmt_compute_kind(stmt_id);
         matches!(compute_kind, ComputeKind::Classical)
     }
 
@@ -1138,12 +1145,90 @@ impl<'a> PartialEvaluator<'a> {
     }
 
     fn try_eval_stmt(&mut self, stmt_id: StmtId) -> Result<EvalControlFlow, Error> {
-        // If the statement is classical, we can just evaluate it.
-        if self.is_classical_stmt(stmt_id) {
-            self.eval_classical_stmt(stmt_id)
-        } else {
-            self.eval_hybrid_stmt(stmt_id)
+        let stmt = self.get_stmt(stmt_id);
+        match stmt.kind {
+            StmtKind::Expr(expr_id) => self.try_eval_expr(expr_id),
+            StmtKind::Semi(expr_id) => {
+                let control_flow = self.try_eval_expr(expr_id)?;
+                match control_flow {
+                    EvalControlFlow::Continue(_) => Ok(EvalControlFlow::Continue(Value::unit())),
+                    EvalControlFlow::Return(_) => Ok(control_flow),
+                }
+            }
+            StmtKind::Local(mutability, pat_id, expr_id) => {
+                let control_flow = self.try_eval_expr(expr_id)?;
+                match control_flow {
+                    EvalControlFlow::Continue(value) => {
+                        self.bind_value_to_pat(mutability, pat_id, value);
+                        Ok(EvalControlFlow::Continue(Value::unit()))
+                    }
+                    EvalControlFlow::Return(_) => Ok(control_flow),
+                }
+            }
+            StmtKind::Item(_) => {
+                // Do nothing and return a continue unit value.
+                Ok(EvalControlFlow::Continue(Value::unit()))
+            }
         }
+    }
+
+    fn update_hybrid_bindings(
+        &mut self,
+        lhs_expr_id: ExprId,
+        rhs_value: Value,
+    ) -> Result<(), Error> {
+        let lhs_expr = self.get_expr(lhs_expr_id);
+        match (&lhs_expr.kind, rhs_value) {
+            (ExprKind::Hole, _) => {}
+            (ExprKind::Var(Res::Local(local_var_id), _), value) => {
+                self.update_hybrid_local(lhs_expr, *local_var_id, value)?;
+            }
+            (ExprKind::Tuple(exprs), Value::Tuple(values)) => {
+                for (expr_id, value) in exprs.iter().zip(values.iter()) {
+                    self.update_hybrid_bindings(*expr_id, value.clone())?;
+                }
+            }
+            _ => unreachable!("unassignable pattern should be disallowed by compiler"),
+        };
+        Ok(())
+    }
+
+    fn update_hybrid_local(
+        &mut self,
+        local_expr: &Expr,
+        local_var_id: LocalVarId,
+        value: Value,
+    ) -> Result<(), Error> {
+        let bound_value = self
+            .eval_context
+            .get_current_scope()
+            .get_hybrid_local_value(local_var_id);
+        if let Value::Var(var) = bound_value {
+            // Insert a store instruction when the value of a variable is updated.
+            let rhs_operand = map_eval_value_to_rir_operand(&value);
+            let rir_var = map_eval_var_to_rir_var(*var);
+            let store_ins = Instruction::Store(rhs_operand, rir_var);
+            self.get_current_rir_block_mut().0.push(store_ins);
+        } else {
+            // Verify that we are not updating a value that does not have a backing variable from a dynamic branch
+            // because it is unsupported.
+            if self
+                .eval_context
+                .get_current_scope()
+                .is_currently_evaluating_branch()
+            {
+                let msg = format!(
+                    "re-assignment within a dynamic branch is unsupported for type {}",
+                    local_expr.ty
+                );
+                let error = Error::Unexpected(msg, local_expr.span);
+                return Err(error);
+            }
+            self.eval_context
+                .get_current_scope_mut()
+                .update_hybrid_local_value(local_var_id, value);
+        }
+        Ok(())
     }
 
     fn generate_output_recording_instructions(
@@ -1201,18 +1286,15 @@ impl<'a> PartialEvaluator<'a> {
     }
 
     fn record_variable(&mut self, ty: &Ty, instrs: &mut Vec<Instruction>, var: Var) {
-        let (record_callable_id, record_ty) = match ty {
-            Ty::Prim(Prim::Bool) => (self.get_bool_record_callable(), rir::Ty::Boolean),
-            Ty::Prim(Prim::Int) => (self.get_int_record_callable(), rir::Ty::Integer),
+        let record_callable_id = match ty {
+            Ty::Prim(Prim::Bool) => self.get_bool_record_callable(),
+            Ty::Prim(Prim::Int) => self.get_int_record_callable(),
             _ => panic!("unsupported variable type in output recording"),
         };
         instrs.push(Instruction::Call(
             record_callable_id,
             vec![
-                Operand::Variable(rir::Variable {
-                    variable_id: var.0.into(),
-                    ty: record_ty,
-                }),
+                Operand::Variable(map_eval_var_to_rir_var(var)),
                 Operand::Literal(Literal::Pointer),
             ],
             None,
@@ -1403,6 +1485,21 @@ fn map_eval_value_to_rir_operand(value: &Value) -> Operand {
     }
 }
 
+fn map_eval_var_to_rir_var(var: Var) -> rir::Variable {
+    rir::Variable {
+        variable_id: var.id.into(),
+        ty: map_eval_var_type_to_rir_type(var.ty),
+    }
+}
+
+fn map_eval_var_type_to_rir_type(var_ty: VarTy) -> rir::Ty {
+    match var_ty {
+        VarTy::Boolean => rir::Ty::Boolean,
+        VarTy::Integer => rir::Ty::Integer,
+        VarTy::Double => rir::Ty::Double,
+    }
+}
+
 fn map_fir_type_to_rir_type(ty: &Ty) -> rir::Ty {
     let Ty::Prim(prim) = ty else {
         panic!("only some primitive types are supported");
@@ -1421,5 +1518,31 @@ fn map_fir_type_to_rir_type(ty: &Ty) -> rir::Ty {
         Prim::Int => rir::Ty::Integer,
         Prim::Qubit => rir::Ty::Qubit,
         Prim::Result => rir::Ty::Result,
+    }
+}
+
+fn map_rir_var_to_eval_var(var: rir::Variable) -> Var {
+    Var {
+        id: var.variable_id.into(),
+        ty: map_rir_type_to_eval_var_type(var.ty),
+    }
+}
+
+fn map_rir_type_to_eval_var_type(ty: rir::Ty) -> VarTy {
+    match ty {
+        rir::Ty::Boolean => VarTy::Boolean,
+        rir::Ty::Integer => VarTy::Integer,
+        rir::Ty::Double => VarTy::Double,
+        _ => panic!("cannot convert RIR type {ty} to evaluator varible type"),
+    }
+}
+
+fn try_get_eval_var_type(value: &Value) -> Option<VarTy> {
+    match value {
+        Value::Bool(_) => Some(VarTy::Boolean),
+        Value::Int(_) => Some(VarTy::Integer),
+        Value::Double(_) => Some(VarTy::Double),
+        Value::Var(var) => Some(var.ty),
+        _ => None,
     }
 }

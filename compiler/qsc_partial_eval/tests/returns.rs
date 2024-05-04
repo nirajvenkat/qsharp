@@ -868,10 +868,9 @@ fn explicit_return_embedded_in_assign_expr_yields_error() {
         }
     }
     "#});
-    // The type of error will change once this kind of hybrid expression is supported.
     assert_error(
         &error,
-        &expect![[r#"Unimplemented("Assignment Expr", Span { lo: 165, hi: 185 })"#]],
+        &expect![[r#"Unexpected("embedded return in assign expression", Span { lo: 173, hi: 185 })"#]],
     );
 }
 
