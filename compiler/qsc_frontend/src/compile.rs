@@ -101,6 +101,8 @@ impl SourceMap {
                 ))
             } else if manifest_path.ends_with("src") || manifest_path.ends_with("src/") {
                 Some(manifest_path.clone())
+            } else if (*manifest_path).is_empty() {
+                None
             } else {
                 let manifest_path = Path::new(&*manifest_path);
                 if manifest_path.is_dir() || manifest_path.extension().is_none() {
@@ -109,7 +111,9 @@ impl SourceMap {
                     Some(Rc::from(
                         project_root_dir_as_path.to_string_lossy().to_string(),
                     ))
-                } else { None }
+                } else {
+                    None
+                }
             }
         } else {
             None

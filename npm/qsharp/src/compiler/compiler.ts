@@ -111,7 +111,7 @@ export type ProgramConfig = {
   /** Target compilation profile. */
   profile?: TargetProfile;
   /** Directory containing the project. */
-  project_root_dir?: string;
+  projectRootDir?: string;
 };
 
 // WebWorker also support being explicitly terminated to tear down the worker thread
@@ -165,13 +165,13 @@ export class Compiler implements ICompiler {
     sources,
     languageFeatures = [],
     profile = "base",
-    project_root_dir = "",
+    projectRootDir = "",
   }: ProgramConfig): Promise<string> {
     return this.wasm.get_qir(
       sources,
       languageFeatures,
       profile,
-      project_root_dir,
+      projectRootDir,
     );
   }
 
@@ -199,14 +199,14 @@ export class Compiler implements ICompiler {
   }
 
   async newGetEstimates(
-    { sources, languageFeatures, project_root_dir }: ProgramConfig,
+    { sources, languageFeatures, projectRootDir }: ProgramConfig,
     params: string,
   ): Promise<string> {
     return this.wasm.get_estimates(
       sources,
       params,
       languageFeatures || [],
-      project_root_dir || "",
+      projectRootDir || "",
     );
   }
 
@@ -263,7 +263,7 @@ export class Compiler implements ICompiler {
       // this is the new API
       sources = sourcesOrConfig.sources;
       languageFeatures = sourcesOrConfig.languageFeatures || [];
-      project_root_dir = sourcesOrConfig.project_root_dir || "";
+      project_root_dir = sourcesOrConfig.projectRootDir || "";
     }
     // All results are communicated as events, but if there is a compiler error (e.g. an invalid
     // entry expression or similar), it may throw on run. The caller should expect this promise
@@ -290,7 +290,7 @@ export class Compiler implements ICompiler {
       config.languageFeatures || [],
       simulate,
       operation,
-      config.project_root_dir || "",
+      config.projectRootDir || "",
     );
   }
 
