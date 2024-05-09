@@ -205,6 +205,7 @@ export async function loadProject(documentUri: vscode.Uri): Promise<{
   sources: [string, string][];
   languageFeatures: string[];
   lints: { lint: string; level: string }[];
+  projectRootDir: string;
 }> {
   // get the project using this.program
   const manifest = await getManifestThrowsOnParseFailure(
@@ -218,6 +219,7 @@ export async function loadProject(documentUri: vscode.Uri): Promise<{
       sources: [[documentUri.toString(), file.getText()]],
       languageFeatures: [],
       lints: [],
+      projectRootDir: "",
     };
   }
 
@@ -230,5 +232,6 @@ export async function loadProject(documentUri: vscode.Uri): Promise<{
     sources: project,
     languageFeatures: manifest.languageFeatures || [],
     lints: manifest.lints,
+    projectRootDir: manifest.manifestDirectory,
   };
 }

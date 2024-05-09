@@ -130,7 +130,7 @@ mod given_debugger {
         #[test]
         fn in_one_level_operation_works() -> Result<(), Vec<crate::interpret::Error>> {
             use qsc_data_structures::language_features::LanguageFeatures;
-            let sources = SourceMap::new([("test".into(), STEPPING_SOURCE.into())], None);
+            let sources = SourceMap::new([("test".into(), STEPPING_SOURCE.into())], None, None);
             let mut debugger = Debugger::new(
                 sources,
                 TargetCapabilityFlags::all(),
@@ -153,7 +153,7 @@ mod given_debugger {
 
         #[test]
         fn next_crosses_operation_works() -> Result<(), Vec<crate::interpret::Error>> {
-            let sources = SourceMap::new([("test".into(), STEPPING_SOURCE.into())], None);
+            let sources = SourceMap::new([("test".into(), STEPPING_SOURCE.into())], None, None);
             let mut debugger = Debugger::new(
                 sources,
                 TargetCapabilityFlags::all(),
@@ -172,7 +172,7 @@ mod given_debugger {
 
         #[test]
         fn in_multiple_operations_works() -> Result<(), Vec<crate::interpret::Error>> {
-            let sources = SourceMap::new([("test".into(), STEPPING_SOURCE.into())], None);
+            let sources = SourceMap::new([("test".into(), STEPPING_SOURCE.into())], None, None);
             let mut debugger = Debugger::new(
                 sources,
                 TargetCapabilityFlags::all(),
@@ -198,7 +198,7 @@ mod given_debugger {
 
         #[test]
         fn out_multiple_operations_works() -> Result<(), Vec<crate::interpret::Error>> {
-            let sources = SourceMap::new([("test".into(), STEPPING_SOURCE.into())], None);
+            let sources = SourceMap::new([("test".into(), STEPPING_SOURCE.into())], None, None);
             let mut debugger = Debugger::new(
                 sources,
                 TargetCapabilityFlags::all(),

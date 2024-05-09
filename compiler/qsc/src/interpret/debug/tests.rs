@@ -65,6 +65,7 @@ fn stack_traces_can_cross_eval_session_and_file_boundaries() {
             ("2.qs".into(), source2.into()),
         ],
         None,
+        None,
     );
     let mut interpreter = Interpreter::new(
         true,
@@ -140,6 +141,7 @@ fn stack_traces_can_cross_file_and_entry_boundaries() {
             ("2.qs".into(), source2.into()),
         ],
         Some("Adjoint Test2.A(0)".into()),
+        None,
     );
     let mut interpreter = Interpreter::new(
         true,

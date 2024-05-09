@@ -249,6 +249,7 @@ mod tests {
                 ("bar.qs".into(), "namespace Bar { }".into()),
             ],
             None,
+            None,
         );
         let (unit, _) = compile::compile(
             &store,

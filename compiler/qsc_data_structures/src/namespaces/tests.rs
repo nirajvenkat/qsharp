@@ -498,7 +498,7 @@ fn test_get_namespace_id() {
     for name in names_to_query_buf {
         result_buf.push(root.get_namespace_id(name.iter().map(|x| &**x)));
     }
-    expect![[r#"
+    expect![[r"
         [
             Some(
                 NamespaceId(
@@ -561,6 +561,6 @@ fn test_get_namespace_id() {
                 ),
             ),
         ]
-    "#]]
+    "]]
     .assert_debug_eq(&result_buf);
 }

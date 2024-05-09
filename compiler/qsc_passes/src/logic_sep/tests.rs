@@ -34,7 +34,7 @@ fn check(block_str: &str, expect: &Expect) {
     let unit = compile(
         &store,
         &[std],
-        SourceMap::new([], Some(block_str.into())),
+        SourceMap::new([], Some(block_str.into()), None),
         TargetCapabilityFlags::all(),
         LanguageFeatures::default(),
     );

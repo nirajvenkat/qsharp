@@ -13,7 +13,7 @@ use crate::callable_limits::CallableLimits;
 
 fn check(file: &str, expect: &Expect) {
     let store = PackageStore::new(compile::core());
-    let sources = SourceMap::new([("test".into(), file.into())], None);
+    let sources = SourceMap::new([("test".into(), file.into())], None, None);
     let unit = compile(
         &store,
         &[],

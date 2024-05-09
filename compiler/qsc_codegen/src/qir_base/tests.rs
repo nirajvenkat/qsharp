@@ -29,7 +29,7 @@ fn check(program: &str, expr: Option<&str>, expect: &Expect) {
     let std = store.insert(std);
 
     let expr_as_arc: Option<Arc<str>> = expr.map(|s| Arc::from(s.to_string()));
-    let sources = SourceMap::new([("test".into(), program.into())], expr_as_arc);
+    let sources = SourceMap::new([("test".into(), program.into())], expr_as_arc, None);
 
     let mut unit = compile(
         &store,

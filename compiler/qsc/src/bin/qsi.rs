@@ -17,6 +17,7 @@ use qsc_eval::{
 use qsc_frontend::compile::{SourceContents, SourceMap, SourceName};
 use qsc_passes::PackageType;
 use qsc_project::{FileSystem, Manifest, StdFs};
+use std::rc::Rc;
 use std::{
     fs,
     io::{self, prelude::BufRead, Write},
@@ -87,6 +88,7 @@ fn main() -> miette::Result<ExitCode> {
 
     let mut features = LanguageFeatures::from_iter(cli.features);
 
+    let mut project_root_dir = None;
     if sources.is_empty() {
         let fs = StdFs;
         let manifest = Manifest::load(cli.qsharp_json)?;
@@ -99,12 +101,17 @@ fn main() -> miette::Result<ExitCode> {
             features.merge(LanguageFeatures::from_iter(
                 manifest.manifest.language_features,
             ));
+            project_root_dir = Some(Rc::from(manifest.manifest_dir.to_string_lossy()));
         }
     }
     if cli.exec {
         let mut interpreter = match Interpreter::new(
             !cli.nostdlib,
-            SourceMap::new(sources, cli.entry.map(std::convert::Into::into)),
+            SourceMap::new(
+                sources,
+                cli.entry.map(std::convert::Into::into),
+                project_root_dir,
+            ),
             PackageType::Exe,
             TargetCapabilityFlags::all(),
             features,
@@ -124,7 +131,7 @@ fn main() -> miette::Result<ExitCode> {
 
     let mut interpreter = match Interpreter::new(
         !cli.nostdlib,
-        SourceMap::new(sources, None),
+        SourceMap::new(sources, None, None),
         PackageType::Lib,
         TargetCapabilityFlags::all(),
         features,

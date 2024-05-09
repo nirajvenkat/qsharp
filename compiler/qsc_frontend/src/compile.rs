@@ -35,6 +35,8 @@ use qsc_hir::{
     validate::Validator as HirValidator,
     visit::Visitor as _,
 };
+use std::path::PathBuf;
+use std::rc::Rc;
 use std::{fmt::Debug, sync::Arc};
 use thiserror::Error;
 
@@ -60,7 +62,7 @@ pub struct AstPackage {
 pub struct SourceMap {
     sources: Vec<Source>,
     /// if the sources are from a project, then this is the project root directory.
-    project_root_dir: Option<Arc<str>>,
+    pub project_root_dir: Option<Rc<str>>,
     entry: Option<Source>,
 }
 
@@ -68,6 +70,7 @@ impl SourceMap {
     pub fn new(
         sources: impl IntoIterator<Item = (SourceName, SourceContents)>,
         entry: Option<Arc<str>>,
+        manifest_path: Option<Rc<str>>,
     ) -> Self {
         let mut offset_sources = Vec::new();
 
@@ -87,27 +90,31 @@ impl SourceMap {
             offset = next_offset(Some(&source));
             offset_sources.push(source);
         }
-
-        // Each source has a name, which is a string. The project root dir is calculated as the
-        // common prefix of all of the sources.
-        // Calculate the common prefix.
-        let project_root_dir: String = longest_common_prefix(
-            &offset_sources
-                .iter()
-                .map(|source| source.name.as_ref())
-                .collect::<Vec<_>>(),
-        )
-        .to_string();
-
-        let project_root_dir: Arc<str> = Arc::from(project_root_dir);
+        let project_root_dir = if let Some(manifest_path) = manifest_path {
+            if manifest_path.ends_with("qsharp.json") {
+                // replace `qsharp.json` with `src/` to get the project root dir
+                let mut project_root_dir_as_path = PathBuf::from(manifest_path.as_ref());
+                let _manifest = project_root_dir_as_path.pop();
+                project_root_dir_as_path.push("src/");
+                Some(Rc::from(
+                    project_root_dir_as_path.to_string_lossy().to_string(),
+                ))
+            } else if manifest_path.ends_with("src") || manifest_path.ends_with("src/") {
+                Some(manifest_path.clone())
+            } else {
+                let mut project_root_dir_as_path = PathBuf::from(manifest_path.as_ref());
+                project_root_dir_as_path.push("src/");
+                Some(Rc::from(
+                    project_root_dir_as_path.to_string_lossy().to_string(),
+                ))
+            }
+        } else {
+            None
+        };
 
         Self {
             sources: offset_sources,
-            project_root_dir: if project_root_dir.is_empty() {
-                None
-            } else {
-                Some(project_root_dir)
-            },
+            project_root_dir,
             entry: entry_source,
         }
     }
@@ -420,7 +427,7 @@ pub fn core() -> CompileUnit {
         .iter()
         .map(|(name, contents)| ((*name).into(), (*contents).into()))
         .collect();
-    let sources = SourceMap::new(core, None);
+    let sources = SourceMap::new(core, None, None);
 
     let mut unit = compile(
         &store,
@@ -444,7 +451,7 @@ pub fn std(store: &PackageStore, capabilities: TargetCapabilityFlags) -> Compile
         .iter()
         .map(|(name, contents)| ((*name).into(), (*contents).into()))
         .collect();
-    let sources = SourceMap::new(std, None);
+    let sources = SourceMap::new(std, None, None);
 
     let mut unit = compile(
         store,
@@ -464,8 +471,12 @@ fn parse_all(
     let mut namespaces = Vec::new();
     let mut errors = Vec::new();
     for source in sources.localized_project_sources() {
-        let (source_namespaces, source_errors) =
-            qsc_parse::namespaces(&source.contents, Some(&source.name), features);
+        let (source_namespaces, source_errors) = qsc_parse::namespaces(
+            &source.contents,
+            Some(&source.name),
+            features,
+            &sources.project_root_dir.clone(),
+        );
         for mut namespace in source_namespaces {
             Offsetter(source.offset).visit_namespace(&mut namespace);
             namespaces.push(TopLevelNode::Namespace(namespace));
@@ -572,21 +583,4 @@ fn assert_no_errors(sources: &SourceMap, errors: &mut Vec<Error>) {
 
         panic!("could not compile package");
     }
-}
-
-#[must_use]
-pub fn longest_common_prefix<'a>(strs: &'a [&'a str]) -> &'a str {
-    let Some(common_prefix_so_far) = strs.first() else {
-        return "";
-    };
-
-    for (i, character) in common_prefix_so_far.chars().enumerate() {
-        for string in strs {
-            if string.chars().nth(i) != Some(character) {
-                return &common_prefix_so_far[0..i];
-            }
-        }
-    }
-
-    common_prefix_so_far
 }

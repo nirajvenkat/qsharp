@@ -27,7 +27,7 @@ pub fn check_solution(
     exercise_sources: Vec<(SourceName, SourceContents)>,
     receiver: &mut impl Receiver,
 ) -> Result<bool, Vec<Error>> {
-    let source_map = SourceMap::new(exercise_sources, Some(EXERCISE_ENTRY.into()));
+    let source_map = SourceMap::new(exercise_sources, Some(EXERCISE_ENTRY.into()), None);
     let mut interpreter: Interpreter = Interpreter::new(
         true,
         source_map,

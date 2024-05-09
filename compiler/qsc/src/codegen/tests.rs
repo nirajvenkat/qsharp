@@ -16,7 +16,7 @@ fn code_with_errors_returns_errors() {
                 let pi_over_two = 4.0 / 2.0;
             }
         }";
-    let sources = SourceMap::new([("test.qs".into(), source.into())], None);
+    let sources = SourceMap::new([("test.qs".into(), source.into())], None, None);
     let language_features = LanguageFeatures::default();
     let capabilities = TargetCapabilityFlags::empty();
 
@@ -52,7 +52,7 @@ mod base_profile {
                 __quantum__qis__mresetz__body(q)
             }
         }";
-        let sources = SourceMap::new([("test.qs".into(), source.into())], None);
+        let sources = SourceMap::new([("test.qs".into(), source.into())], None, None);
         let language_features = LanguageFeatures::default();
         let capabilities = TargetCapabilityFlags::empty();
 
@@ -102,7 +102,7 @@ mod base_profile {
                 (MResetZ(q), MResetZ(q))
             }
         }";
-        let sources = SourceMap::new([("test.qs".into(), source.into())], None);
+        let sources = SourceMap::new([("test.qs".into(), source.into())], None, None);
         let language_features = LanguageFeatures::default();
         let capabilities = TargetCapabilityFlags::empty();
 
@@ -155,7 +155,7 @@ mod base_profile {
                 [r0, r1]
             }
         }";
-        let sources = SourceMap::new([("test.qs".into(), source.into())], None);
+        let sources = SourceMap::new([("test.qs".into(), source.into())], None, None);
         let language_features = LanguageFeatures::default();
         let capabilities = TargetCapabilityFlags::empty();
 
@@ -224,7 +224,7 @@ mod adaptive_profile {
                 __quantum__qis__mresetz__body(q)
             }
         }";
-        let sources = SourceMap::new([("test.qs".into(), source.into())], None);
+        let sources = SourceMap::new([("test.qs".into(), source.into())], None, None);
         let language_features = LanguageFeatures::default();
         let capabilities = TargetCapabilityFlags::Adaptive;
 
@@ -281,7 +281,7 @@ mod adaptive_profile {
                 (MResetZ(q), MResetZ(q))
             }
         }";
-        let sources = SourceMap::new([("test.qs".into(), source.into())], None);
+        let sources = SourceMap::new([("test.qs".into(), source.into())], None, None);
         let language_features = LanguageFeatures::default();
         let capabilities = TargetCapabilityFlags::Adaptive;
 
@@ -341,7 +341,7 @@ mod adaptive_profile {
                 [r0, r1]
             }
         }";
-        let sources = SourceMap::new([("test.qs".into(), source.into())], None);
+        let sources = SourceMap::new([("test.qs".into(), source.into())], None, None);
         let language_features = LanguageFeatures::default();
         let capabilities = TargetCapabilityFlags::Adaptive;
 
@@ -417,7 +417,7 @@ mod quantinuum_profile {
                 __quantum__qis__mresetz__body(q)
             }
         }";
-        let sources = SourceMap::new([("test.qs".into(), source.into())], None);
+        let sources = SourceMap::new([("test.qs".into(), source.into())], None, None);
         let language_features = LanguageFeatures::default();
         let capabilities = TargetCapabilityFlags::Adaptive
             | TargetCapabilityFlags::QubitReset
@@ -476,7 +476,7 @@ mod quantinuum_profile {
                 (MResetZ(q), MResetZ(q))
             }
         }";
-        let sources = SourceMap::new([("test.qs".into(), source.into())], None);
+        let sources = SourceMap::new([("test.qs".into(), source.into())], None, None);
         let language_features = LanguageFeatures::default();
         let capabilities = TargetCapabilityFlags::Adaptive
             | TargetCapabilityFlags::QubitReset
@@ -538,7 +538,7 @@ mod quantinuum_profile {
                 [r0, r1]
             }
         }";
-        let sources = SourceMap::new([("test.qs".into(), source.into())], None);
+        let sources = SourceMap::new([("test.qs".into(), source.into())], None, None);
         let language_features = LanguageFeatures::default();
         let capabilities = TargetCapabilityFlags::Adaptive
             | TargetCapabilityFlags::QubitReset
@@ -601,7 +601,7 @@ mod quantinuum_profile {
                 MResetZ(q) == Zero ? 0 | 1
             }
         }";
-        let sources = SourceMap::new([("test.qs".into(), source.into())], None);
+        let sources = SourceMap::new([("test.qs".into(), source.into())], None, None);
         let language_features = LanguageFeatures::default();
         let capabilities = TargetCapabilityFlags::Adaptive
             | TargetCapabilityFlags::QubitReset

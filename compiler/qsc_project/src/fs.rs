@@ -60,7 +60,7 @@ impl DirEntry for StdEntry {
     }
 }
 
-impl std::convert::From<std::fs::FileType> for EntryType {
+impl From<std::fs::FileType> for EntryType {
     fn from(file_type: std::fs::FileType) -> Self {
         if file_type.is_dir() {
             EntryType::Folder

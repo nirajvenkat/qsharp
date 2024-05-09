@@ -10,7 +10,7 @@ use qsc_data_structures::{language_features::LanguageFeatures, target::TargetCap
 use qsc_frontend::compile::{self, compile, PackageStore, SourceMap};
 
 fn check(file: &str, expr: &str, expect: &Expect) {
-    let sources = SourceMap::new([("test".into(), file.into())], Some(expr.into()));
+    let sources = SourceMap::new([("test".into(), file.into())], Some(expr.into()), None);
     let mut unit = compile(
         &PackageStore::new(compile::core()),
         &[],

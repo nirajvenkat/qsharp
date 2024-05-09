@@ -76,7 +76,7 @@ impl CompilationContext {
     fn new_for_exe(source: &str) -> Self {
         let compiler = Compiler::new(
             true,
-            SourceMap::new([("test".into(), source.into())], Some("".into())),
+            SourceMap::new([("test".into(), source.into())], Some("".into()), None),
             PackageType::Exe,
             TargetCapabilityFlags::all(),
             LanguageFeatures::default(),

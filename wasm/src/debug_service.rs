@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+use js_sys::JsString;
 use std::str::FromStr;
 
 use qsc::fir::StmtId;
@@ -34,8 +35,9 @@ impl DebugService {
         target_profile: &str,
         entry: Option<String>,
         language_features: Vec<String>,
+        project_root_dir: JsString,
     ) -> String {
-        let source_map = get_source_map(sources, &entry);
+        let source_map = get_source_map(sources, &entry, &project_root_dir);
         let target = Profile::from_str(target_profile)
             .unwrap_or_else(|()| panic!("Invalid target : {target_profile}"));
         let features = LanguageFeatures::from_iter(language_features);

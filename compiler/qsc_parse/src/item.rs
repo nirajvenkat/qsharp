@@ -30,6 +30,7 @@ use qsc_ast::ast::{
 };
 use qsc_data_structures::language_features::LanguageFeatures;
 use qsc_data_structures::span::Span;
+use std::rc::Rc;
 
 pub(super) fn parse(s: &mut ParserContext) -> Result<Box<Item>> {
     let lo = s.peek().span.lo;
@@ -132,11 +133,15 @@ fn parse_top_level_node(s: &mut ParserContext) -> Result<TopLevelNode> {
         Ok(TopLevelNode::Stmt(stmt))
     }
 }
-pub fn parse_implicit_namespace(file_name: &str, s: &mut ParserContext) -> Result<Namespace> {
+pub fn parse_implicit_namespace(
+    file_name: &str,
+    s: &mut ParserContext,
+    project_root_dir: &Option<Rc<str>>,
+) -> Result<Namespace> {
     let lo = s.peek().span.lo;
     let items = parse_namespace_block_contents(s)?;
     let span = s.span(lo);
-    let namespace_name = file_name_to_namespace_name(file_name, span)?;
+    let namespace_name = file_name_to_namespace_name(file_name, span, project_root_dir)?;
 
     Ok(Namespace {
         id: NodeId::default(),
@@ -149,13 +154,26 @@ pub fn parse_implicit_namespace(file_name: &str, s: &mut ParserContext) -> Resul
 
 /// Given a file name, convert it to a namespace name.
 /// For example, `foo/bar.qs` becomes `foo.bar`.
-fn file_name_to_namespace_name(raw: &str, error_span: Span) -> Result<Idents> {
+fn file_name_to_namespace_name(
+    raw: &str,
+    error_span: Span,
+    project_root_dir: &Option<Rc<str>>,
+) -> Result<Idents> {
+    let raw = if let Some(ref project_root_dir) = project_root_dir {
+        raw.strip_prefix(&**project_root_dir).unwrap_or(raw)
+    } else if let Some(ix) = raw.rfind('/') {
+        &raw[ix + 1..]
+    } else if let Some(ix) = raw.rfind('\\') {
+        &raw[ix + 1..]
+    } else {
+        raw
+    };
     let path = std::path::Path::new(raw);
     let mut namespace = Vec::new();
     for component in path.components() {
         match component {
             std::path::Component::Normal(name) => {
-                // strip the extension off], if there is one
+                // strip the extension off, if there is one
                 let mut name = name
                     .to_str()
                     .ok_or(Error(ErrorKind::InvalidFileName(error_span)))?;
@@ -163,6 +181,7 @@ fn file_name_to_namespace_name(raw: &str, error_span: Span) -> Result<Idents> {
                 if let Some(dot) = name.rfind('.') {
                     name = name[..dot].into();
                 }
+
                 // verify that the component only contains alphanumeric characters, and doesn't start with a number
 
                 validate_namespace_name(error_span, name)?;
@@ -196,10 +215,10 @@ fn validate_namespace_name(error_span: Span, name: &str) -> Result<()> {
 // unit tests for file_name_to_namespace_name
 #[test]
 fn test_file_name_to_namespace_name() {
-    let raw = "foo/bar.qs";
+    let raw = "src/foo/bar.qs";
     let error_span = Span::default();
-    let namespace =
-        file_name_to_namespace_name(raw, error_span).expect("test should not fail here");
+    let namespace = file_name_to_namespace_name(raw, error_span, &Some(Rc::from("src/")))
+        .expect("test should not fail here");
     assert_eq!(namespace.0.len(), 2);
     assert_eq!(&*namespace.0[0].name, "foo");
     assert_eq!(&*namespace.0[1].name, "bar");

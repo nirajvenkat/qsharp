@@ -4,6 +4,7 @@
 #![allow(non_snake_case)]
 
 use diagnostic::{interpret_errors_into_vs_diagnostics, VSDiagnostic};
+use js_sys::JsString;
 use katas::check_solution;
 use language_service::IOperationInfo;
 use num_bigint::BigUint;
@@ -24,6 +25,7 @@ use qsc_codegen::qir_base::generate_qir;
 use resource_estimator::{self as re, estimate_entry};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::rc::Rc;
 use std::{fmt::Write, str::FromStr, sync::Arc};
 use wasm_bindgen::prelude::*;
 
@@ -58,7 +60,11 @@ pub fn git_hash() -> String {
 // array and the content type in the function body
 // `sources` should be Vec<[String; 2]> though
 #[must_use]
-pub fn get_source_map(sources: Vec<js_sys::Array>, entry: &Option<String>) -> SourceMap {
+pub fn get_source_map(
+    sources: Vec<js_sys::Array>,
+    entry: &Option<String>,
+    project_root_dir: &JsString,
+) -> SourceMap {
     let sources = sources.into_iter().map(|js_arr| {
         // map the inner arr elements into (String, String)
         let elem_0 = js_arr.get(0).as_string();
@@ -68,7 +74,12 @@ pub fn get_source_map(sources: Vec<js_sys::Array>, entry: &Option<String>) -> So
             Arc::from(elem_1.unwrap_or_default()),
         )
     });
-    SourceMap::new(sources, entry.as_deref().map(std::convert::Into::into))
+    let project_root_dir: Rc<str> = Rc::from(project_root_dir.as_string().unwrap_or_default());
+    SourceMap::new(
+        sources,
+        entry.as_deref().map(std::convert::Into::into),
+        Some(project_root_dir),
+    )
 }
 
 #[wasm_bindgen]
@@ -76,9 +87,10 @@ pub fn get_qir(
     sources: Vec<js_sys::Array>,
     language_features: Vec<String>,
     profile: &str,
+    project_root_dir: &JsString,
 ) -> Result<String, String> {
     let language_features = LanguageFeatures::from_iter(language_features);
-    let sources = get_source_map(sources, &None);
+    let sources = get_source_map(sources, &None, project_root_dir);
     let profile =
         Profile::from_str(profile).map_err(|()| format!("Invalid target profile {profile}"))?;
     if profile == Profile::Unrestricted {
@@ -124,8 +136,9 @@ pub fn get_estimates(
     sources: Vec<js_sys::Array>,
     params: &str,
     language_features: Vec<String>,
+    project_root_dir: &JsString,
 ) -> Result<String, String> {
-    let sources = get_source_map(sources, &None);
+    let sources = get_source_map(sources, &None, project_root_dir);
 
     let language_features = LanguageFeatures::from_iter(language_features);
 
@@ -152,8 +165,9 @@ pub fn get_circuit(
     language_features: Vec<String>,
     simulate: bool,
     operation: Option<IOperationInfo>,
+    project_root_dir: &JsString,
 ) -> Result<JsValue, String> {
-    let sources = get_source_map(sources, &None);
+    let sources = get_source_map(sources, &None, project_root_dir);
     let target_profile = Profile::from_str(targetProfile).expect("invalid target profile");
 
     let (package_type, entry_point) = match operation {
@@ -214,9 +228,14 @@ pub fn get_ast(
     code: &str,
     language_features: Vec<String>,
     profile: &str,
+    project_root_dir: &JsString,
 ) -> Result<String, String> {
     let language_features = LanguageFeatures::from_iter(language_features);
-    let sources = SourceMap::new([("code".into(), code.into())], None);
+    let sources = SourceMap::new(
+        [("code".into(), code.into())],
+        None,
+        project_root_dir.as_string().map(Rc::from),
+    );
     let profile =
         Profile::from_str(profile).map_err(|()| format!("Invalid target profile {profile}"))?;
     let package = STORE_CORE_STD.with(|(store, std)| {
@@ -238,9 +257,14 @@ pub fn get_hir(
     code: &str,
     language_features: Vec<String>,
     profile: &str,
+    project_root_dir: &JsString,
 ) -> Result<String, String> {
     let language_features = LanguageFeatures::from_iter(language_features);
-    let sources = SourceMap::new([("code".into(), code.into())], None);
+    let sources = SourceMap::new(
+        [("code".into(), code.into())],
+        None,
+        project_root_dir.as_string().map(Rc::from),
+    );
     let profile =
         Profile::from_str(profile).map_err(|()| format!("Invalid target profile {profile}"))?;
     let package = STORE_CORE_STD.with(|(store, std)| {
@@ -374,6 +398,7 @@ pub fn run(
     event_cb: &js_sys::Function,
     shots: u32,
     language_features: Vec<String>,
+    project_root_dir: &JsString,
 ) -> Result<bool, JsValue> {
     if !event_cb.is_function() {
         return Err(JsError::new("Events callback function must be provided").into());
@@ -381,7 +406,7 @@ pub fn run(
 
     let language_features = LanguageFeatures::from_iter(language_features);
 
-    let sources = get_source_map(sources, &Some(expr.into()));
+    let sources = get_source_map(sources, &Some(expr.into()), project_root_dir);
     let event_cb = |msg: &str| {
         // See example at https://rustwasm.github.io/wasm-bindgen/reference/receiving-js-closures-in-rust.html
         let _ = event_cb.call1(&JsValue::null(), &JsValue::from(msg));

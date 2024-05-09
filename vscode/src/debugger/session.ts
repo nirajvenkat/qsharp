@@ -81,6 +81,7 @@ export class QscDebugSession extends LoggingDebugSession {
     private config: vscode.DebugConfiguration,
     private sources: [string, string][],
     private languageFeatures: string[],
+    private projectRootDir: string,
   ) {
     super();
 
@@ -116,6 +117,7 @@ export class QscDebugSession extends LoggingDebugSession {
       this.targetProfile,
       this.config.entry,
       this.languageFeatures,
+      this.projectRootDir,
     );
     for (const [path, _contents] of this.sources) {
       if (failureMessage == "") {

@@ -164,7 +164,7 @@ fn check_intrinsic(file: &str, expr: &str, out: &mut impl Receiver) -> Result<Va
     let std_fir = qsc_lowerer::Lowerer::new().lower_package(&std.package);
     let std_id = store.insert(std);
 
-    let sources = SourceMap::new([("test".into(), file.into())], Some(expr.into()));
+    let sources = SourceMap::new([("test".into(), file.into())], Some(expr.into()), None);
     let mut unit = compile(
         &store,
         &[std_id],

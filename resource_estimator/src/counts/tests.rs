@@ -16,7 +16,11 @@ use qsc::{
 use super::LogicalCounter;
 
 fn verify_logical_counts(source: &str, entry: Option<&str>, expect: &Expect) {
-    let source_map = SourceMap::new([("test".into(), source.into())], entry.map(Into::into));
+    let source_map = SourceMap::new(
+        [("test".into(), source.into())],
+        entry.map(Into::into),
+        None,
+    );
     let mut interpreter = Interpreter::new(
         true,
         source_map,

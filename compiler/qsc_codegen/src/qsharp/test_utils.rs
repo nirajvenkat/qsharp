@@ -64,7 +64,7 @@ pub(crate) fn get_compilation(sources: Option<SourceMap>) -> (PackageId, Package
 
 pub(crate) fn compile_program(expr: Option<&str>, program: &str) -> (String, String) {
     let expr_as_arc: Option<Arc<str>> = expr.map(|s| Arc::from(s.to_string()));
-    let sources = SourceMap::new([("test".into(), program.into())], expr_as_arc);
+    let sources = SourceMap::new([("test".into(), program.into())], expr_as_arc, None);
 
     let (package_id, store) = get_compilation(Some(sources));
     let package = &store.get(package_id).expect("package must exist");

@@ -13,7 +13,7 @@ use qsc_frontend::compile::SourceMap;
 use qsc_passes::PackageType;
 
 fn interpreter(code: &str, profile: Profile) -> Interpreter {
-    let sources = SourceMap::new([("test.qs".into(), code.into())], None);
+    let sources = SourceMap::new([("test.qs".into(), code.into())], None, None);
     Interpreter::new(
         true,
         sources,
@@ -778,7 +778,7 @@ mod debugger_stepping {
     /// Steps through the code in the debugger and collects the
     /// circuit representation at each step.
     fn generate_circuit_steps(code: &str, profile: Profile) -> String {
-        let sources = SourceMap::new([("test.qs".into(), code.into())], None);
+        let sources = SourceMap::new([("test.qs".into(), code.into())], None, None);
         let mut debugger = Debugger::new(
             sources,
             profile.into(),

@@ -13,7 +13,7 @@ use crate::borrowck::Checker;
 
 fn check(expr: &str, expect: &Expect) {
     let store = PackageStore::new(compile::core());
-    let sources: SourceMap = SourceMap::new([("test".into(), "".into())], Some(expr.into()));
+    let sources: SourceMap = SourceMap::new([("test".into(), "".into())], Some(expr.into()), None);
     let unit = compile(
         &store,
         &[],

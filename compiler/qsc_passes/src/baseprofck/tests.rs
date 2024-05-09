@@ -13,7 +13,7 @@ use crate::baseprofck::check_base_profile_compliance;
 fn check(expr: &str, expect: &Expect) {
     let mut store = PackageStore::new(compile::core());
     let std = store.insert(compile::std(&store, TargetCapabilityFlags::all()));
-    let sources = SourceMap::new([("test".into(), "".into())], Some(expr.into()));
+    let sources = SourceMap::new([("test".into(), "".into())], Some(expr.into()), None);
     let unit = compile(
         &store,
         &[std],

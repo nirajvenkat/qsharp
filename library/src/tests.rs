@@ -56,7 +56,7 @@ pub fn test_expression_with_lib_and_profile_and_sim(
     let mut stdout = vec![];
     let mut out = GenericReceiver::new(&mut stdout);
 
-    let sources = SourceMap::new([("test".into(), lib.into())], Some(expr.into()));
+    let sources = SourceMap::new([("test".into(), lib.into())], Some(expr.into()), None);
 
     let mut interpreter = Interpreter::new(
         true,

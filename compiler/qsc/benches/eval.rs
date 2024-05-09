@@ -17,7 +17,7 @@ const ARRAY_LITERAL: &str = include_str!("./array_literal");
 
 pub fn teleport(c: &mut Criterion) {
     c.bench_function("Teleport evaluation", |b| {
-        let sources = SourceMap::new([("Teleportation.qs".into(), TELEPORT.into())], None);
+        let sources = SourceMap::new([("Teleportation.qs".into(), TELEPORT.into())], None, None);
         let mut evaluator = Interpreter::new(
             true,
             sources,
@@ -36,7 +36,11 @@ pub fn teleport(c: &mut Criterion) {
 
 pub fn deutsch_jozsa(c: &mut Criterion) {
     c.bench_function("Deutsch-Jozsa evaluation", |b| {
-        let sources = SourceMap::new([("DeutschJozsa.qs".into(), DEUTSCHJOZSA.into())], None);
+        let sources = SourceMap::new(
+            [("DeutschJozsa.qs".into(), DEUTSCHJOZSA.into())],
+            None,
+            None,
+        );
         let mut evaluator = Interpreter::new(
             true,
             sources,
@@ -55,7 +59,7 @@ pub fn deutsch_jozsa(c: &mut Criterion) {
 
 pub fn large_file(c: &mut Criterion) {
     c.bench_function("Large file parity evaluation", |b| {
-        let sources = SourceMap::new([("large.qs".into(), LARGE.into())], None);
+        let sources = SourceMap::new([("large.qs".into(), LARGE.into())], None, None);
         let mut evaluator = Interpreter::new(
             true,
             sources,
@@ -86,6 +90,7 @@ pub fn array_append(c: &mut Criterion) {
         }"}
                 .into(),
             ),
+            None,
         );
         let mut evaluator = Interpreter::new(
             true,
@@ -117,6 +122,7 @@ pub fn array_update(c: &mut Criterion) {
         }"}
                 .into(),
             ),
+            None,
         );
         let mut evaluator = Interpreter::new(
             true,
@@ -136,7 +142,11 @@ pub fn array_update(c: &mut Criterion) {
 
 pub fn array_literal(c: &mut Criterion) {
     c.bench_function("Array literal evaluation", |b| {
-        let sources = SourceMap::new([("none".into(), "".into())], Some(ARRAY_LITERAL.into()));
+        let sources = SourceMap::new(
+            [("none".into(), "".into())],
+            Some(ARRAY_LITERAL.into()),
+            None,
+        );
         let mut evaluator = Interpreter::new(
             true,
             sources,
@@ -172,6 +182,7 @@ pub fn large_nested_iteration(c: &mut Criterion) {
                 }"}
                 .into(),
             ),
+            None,
         );
         let mut evaluator = Interpreter::new(
             true,

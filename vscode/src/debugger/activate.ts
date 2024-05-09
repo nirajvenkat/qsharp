@@ -215,6 +215,7 @@ class InlineDebugAdapterFactory
       session.configuration,
       project.sources,
       project.languageFeatures,
+      project.projectRootDir,
     );
 
     await qscSession.init(getRandomGuid());

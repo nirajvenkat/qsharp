@@ -9,7 +9,7 @@ use indoc::indoc;
 use qsc_data_structures::{language_features::LanguageFeatures, target::TargetCapabilityFlags};
 
 fn check_hir(input: &str, expect: &Expect) {
-    let sources = SourceMap::new([("test".into(), input.into())], None);
+    let sources = SourceMap::new([("test".into(), input.into())], None, None);
     let unit = compile(
         &PackageStore::new(compile::core()),
         &[],
@@ -21,7 +21,7 @@ fn check_hir(input: &str, expect: &Expect) {
 }
 
 fn check_errors(input: &str, expect: &Expect) {
-    let sources = SourceMap::new([("test".into(), input.into())], None);
+    let sources = SourceMap::new([("test".into(), input.into())], None, None);
     let unit = compile(
         &PackageStore::new(compile::core()),
         &[],

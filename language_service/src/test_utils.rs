@@ -67,7 +67,7 @@ fn compile_project_with_fake_stdlib_and_markers_cursor_optional(
 ) -> (Compilation, Option<(String, Position)>, Vec<Location>) {
     let (sources, cursor_location, target_spans) = get_sources_and_markers(sources_with_markers);
 
-    let source_map = SourceMap::new(sources, None);
+    let source_map = SourceMap::new(sources, None, None);
     let (mut package_store, std_package_id) = compile_fake_stdlib();
     let (unit, errors) = compile::compile(
         &package_store,
@@ -119,6 +119,7 @@ where
             }"
             .into(),
         )],
+        None,
         None,
     );
 
@@ -181,6 +182,7 @@ fn compile_fake_stdlib() -> (PackageStore, PackageId) {
             }"#
             .into(),
         )],
+        None,
         None,
     );
     let (std_compile_unit, std_errors) = compile::compile(

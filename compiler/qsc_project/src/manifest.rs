@@ -53,9 +53,7 @@ impl Manifest {
     /// a manifest file exists but is the wrong format.
     /// Returns `Ok(None)` if there is no file matching the manifest file
     /// name.
-    pub fn load(
-        manifest_path: Option<PathBuf>,
-    ) -> std::result::Result<Option<ManifestDescriptor>, Error> {
+    pub fn load(manifest_path: Option<PathBuf>) -> Result<Option<ManifestDescriptor>, Error> {
         let dir = match manifest_path {
             Some(path) => path,
             None => current_dir()?,
@@ -67,7 +65,7 @@ impl Manifest {
     /// Returns [None] if no manifest named [`MANIFEST_FILE_NAME`] is found.
     /// Returns an error if a manifest is found, but is not parsable into the
     /// expected format.
-    pub fn load_from_path(path: PathBuf) -> std::result::Result<Option<ManifestDescriptor>, Error> {
+    pub fn load_from_path(path: PathBuf) -> Result<Option<ManifestDescriptor>, Error> {
         // if the given path points to a file, change it to point to the parent folder.
         // This lets consumers pass in either the path directly to the manifest file, or the path
         // to the folder containing the manifest file.

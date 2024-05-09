@@ -61,7 +61,7 @@ fn check_expr(file: &str, expr: &str, expect: &Expect) {
     let std_fir = fir_lowerer.lower_package(&std.package);
     let std_id = store.insert(std);
 
-    let sources = SourceMap::new([("test".into(), file.into())], Some(expr.into()));
+    let sources = SourceMap::new([("test".into(), file.into())], Some(expr.into()), None);
     let mut unit = compile(
         &store,
         &[std_id],
@@ -127,7 +127,7 @@ fn check_partial_eval_stmt(
     let std_fir = qsc_lowerer::Lowerer::new().lower_package(&std.package);
     let std_id = store.insert(std);
 
-    let sources = SourceMap::new([("".into(), file.into())], Some(expr.into()));
+    let sources = SourceMap::new([("".into(), file.into())], Some(expr.into()), None);
     let mut unit = compile(
         &store,
         &[std_id],

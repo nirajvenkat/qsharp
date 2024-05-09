@@ -163,7 +163,7 @@ fn check(source: &str, expected: &Expect) {
     let source = wrap_in_namespace(source);
     let mut store = PackageStore::new(compile::core());
     let std = store.insert(compile::std(&store, TargetCapabilityFlags::all()));
-    let sources = SourceMap::new([("source.qs".into(), source.clone().into())], None);
+    let sources = SourceMap::new([("source.qs".into(), source.clone().into())], None, None);
     let (package, _) = qsc::compile::compile(
         &store,
         &[std],

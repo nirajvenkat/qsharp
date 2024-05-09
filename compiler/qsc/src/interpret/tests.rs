@@ -1473,7 +1473,7 @@ mod given_interpreter {
                 }
             }"#};
 
-            let sources = SourceMap::new([("test".into(), source.into())], None);
+            let sources = SourceMap::new([("test".into(), source.into())], None, None);
             let mut interpreter = Interpreter::new(
                 true,
                 sources,
@@ -1496,7 +1496,7 @@ mod given_interpreter {
                 }
             }"#};
 
-            let sources = SourceMap::new([("test".into(), source.into())], None);
+            let sources = SourceMap::new([("test".into(), source.into())], None, None);
             let mut interpreter = Interpreter::new(
                 true,
                 sources,
@@ -1523,7 +1523,7 @@ mod given_interpreter {
                 }
             }"#};
 
-            let sources = SourceMap::new([("test".into(), source.into())], None);
+            let sources = SourceMap::new([("test".into(), source.into())], None, None);
             let mut interpreter = Interpreter::new(
                 true,
                 sources,
@@ -1567,7 +1567,7 @@ mod given_interpreter {
                 ),
             ];
 
-            let sources = SourceMap::new(sources, None);
+            let sources = SourceMap::new(sources, None, None);
             let debugger = Debugger::new(
                 sources,
                 TargetCapabilityFlags::all(),
@@ -1596,7 +1596,7 @@ mod given_interpreter {
                 }
             }"#};
 
-            let sources = SourceMap::new([("test".into(), source.into())], None);
+            let sources = SourceMap::new([("test".into(), source.into())], None, None);
             let mut interpreter = Interpreter::new(
                 true,
                 sources,
@@ -1626,6 +1626,7 @@ mod given_interpreter {
                     .into(),
                 )],
                 Some("Foo.Bar()".into()),
+                None,
             );
 
             let mut interpreter = Interpreter::new(
@@ -1666,6 +1667,7 @@ mod given_interpreter {
                     .into(),
                 )],
                 Some("A.B()".into()),
+                None,
             );
 
             let (package_type, capabilities, language_features) = (
@@ -1721,6 +1723,7 @@ mod given_interpreter {
                     .into(),
                 )],
                 None,
+                None,
             );
 
             let mut interpreter = Interpreter::new(
@@ -1753,6 +1756,7 @@ mod given_interpreter {
                     "
                     .into(),
                 )],
+                None,
                 None,
             );
 

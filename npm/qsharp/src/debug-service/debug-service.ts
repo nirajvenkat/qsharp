@@ -31,6 +31,7 @@ export interface IDebugService {
     target: TargetProfile,
     entry: string | undefined,
     language_features: string[],
+    project_root_dir: string,
   ): Promise<string>;
   getBreakpoints(path: string): Promise<IBreakpointSpan[]>;
   getLocalVariables(): Promise<Array<IVariable>>;
@@ -73,12 +74,14 @@ export class QSharpDebugService implements IDebugService {
     target: TargetProfile,
     entry: string | undefined,
     language_features: string[],
+    project_root_dir: string,
   ): Promise<string> {
     return this.debugService.load_source(
       sources,
       target,
       entry,
       language_features,
+      project_root_dir,
     );
   }
 

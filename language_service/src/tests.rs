@@ -52,9 +52,7 @@ async fn single_document() {
                         offset: 0,
                     },
                 ],
-                project_root_dir: Some(
-                    "foo.qs",
-                ),
+                project_root_dir: None,
                 entry: None,
             }
         "#]]),
@@ -102,9 +100,7 @@ async fn single_document_update() {
                         offset: 0,
                     },
                 ],
-                project_root_dir: Some(
-                    "foo.qs",
-                ),
+                project_root_dir: None,
                 entry: None,
             }
         "#]]),
@@ -143,9 +139,7 @@ async fn single_document_update() {
                         offset: 0,
                     },
                 ],
-                project_root_dir: Some(
-                    "foo.qs",
-                ),
+                project_root_dir: None,
                 entry: None,
             }
         "#]]),
@@ -206,7 +200,9 @@ async fn document_in_project() {
                         offset: 52,
                     },
                 ],
-                project_root_dir: None,
+                project_root_dir: Some(
+                    "./src/",
+                ),
                 entry: None,
             }
         "#]],

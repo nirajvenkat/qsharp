@@ -5,6 +5,7 @@
 
 use super::{compile, CompileUnit, Error, PackageStore, SourceMap};
 use crate::compile::TargetCapabilityFlags;
+use std::rc::Rc;
 
 use expect_test::expect;
 use indoc::indoc;
@@ -76,6 +77,7 @@ fn one_file_no_entry() {
             .into(),
         )],
         None,
+        None,
     );
 
     let unit = default_compile(sources);
@@ -99,6 +101,7 @@ fn one_file_error() {
             "}
             .into(),
         )],
+        None,
         None,
     );
 
@@ -138,6 +141,7 @@ fn two_files_dependency() {
             ),
         ],
         None,
+        None,
     );
 
     let unit = default_compile(sources);
@@ -172,6 +176,7 @@ fn two_files_mutual_dependency() {
             ),
         ],
         None,
+        None,
     );
 
     let unit = default_compile(sources);
@@ -204,6 +209,7 @@ fn two_files_error() {
             ),
         ],
         None,
+        None,
     );
 
     let unit = default_compile(sources);
@@ -235,6 +241,7 @@ fn entry_call_operation() {
             .into(),
         )],
         Some("Foo.A()".into()),
+        None,
     );
 
     let unit = default_compile(sources);
@@ -269,6 +276,7 @@ fn entry_error() {
             .into(),
         )],
         Some("Foo.B()".into()),
+        None,
     );
 
     let unit = default_compile(sources);
@@ -305,6 +313,7 @@ fn replace_node() {
             "}
             .into(),
         )],
+        None,
         None,
     );
 
@@ -391,6 +400,7 @@ fn insert_core_call() {
             .into(),
         )],
         None,
+        None,
     );
 
     let store = PackageStore::new(super::core());
@@ -439,6 +449,7 @@ fn package_dependency() {
             .into(),
         )],
         None,
+        None,
     );
     let unit1 = compile(
         &store,
@@ -462,6 +473,7 @@ fn package_dependency() {
             "}
             .into(),
         )],
+        None,
         None,
     );
     let unit2 = compile(
@@ -512,6 +524,7 @@ fn package_dependency_internal_error() {
             .into(),
         )],
         None,
+        None,
     );
     let unit1 = compile(
         &store,
@@ -535,6 +548,7 @@ fn package_dependency_internal_error() {
             "}
             .into(),
         )],
+        None,
         None,
     );
     let unit2 = compile(
@@ -592,6 +606,7 @@ fn package_dependency_udt() {
             .into(),
         )],
         None,
+        None,
     );
     let unit1 = compile(
         &store,
@@ -615,6 +630,7 @@ fn package_dependency_udt() {
             "}
             .into(),
         )],
+        None,
         None,
     );
     let unit2 = compile(
@@ -667,6 +683,7 @@ fn package_dependency_nested_udt() {
             .into(),
         )],
         None,
+        None,
     );
     let unit1 = compile(
         &store,
@@ -695,6 +712,7 @@ fn package_dependency_nested_udt() {
             "}
             .into(),
         )],
+        None,
         None,
     );
     let unit2 = compile(
@@ -775,6 +793,7 @@ fn std_dependency() {
             .into(),
         )],
         Some("Foo.Main()".into()),
+        None,
     );
 
     let unit = compile(
@@ -807,6 +826,7 @@ fn std_dependency_base_profile() {
             .into(),
         )],
         Some("Foo.Main()".into()),
+        None,
     );
 
     let unit = compile(
@@ -835,6 +855,7 @@ fn introduce_prelude_ambiguity() {
             .into(),
         )],
         Some("Foo.Main()".into()),
+        None,
     );
 
     let unit = compile(
@@ -864,6 +885,7 @@ fn entry_parse_error() {
             "namespace Foo { operation B() : Unit {} }".into(),
         )],
         Some("Foo.B)".into()),
+        None,
     );
 
     let unit = default_compile(sources);
@@ -889,6 +911,7 @@ fn two_files_error_eof() {
             ("test1".into(), "namespace Foo {".into()),
             ("test2".into(), "namespace Bar {}".into()),
         ],
+        None,
         None,
     );
 
@@ -924,6 +947,7 @@ fn unimplemented_call_from_dependency_produces_error() {
             .into(),
         )],
         None,
+        None,
     );
     let mut store = PackageStore::new(super::core());
     let lib = compile(
@@ -949,6 +973,7 @@ fn unimplemented_call_from_dependency_produces_error() {
             "}
             .into(),
         )],
+        None,
         None,
     );
     let unit = compile(
@@ -993,6 +1018,7 @@ fn unimplemented_attribute_call_within_unit_error() {
             .into(),
         )],
         None,
+        None,
     );
     let unit = default_compile(sources);
     expect![[r#"
@@ -1026,6 +1052,7 @@ fn unimplemented_attribute_with_non_unit_expr_error() {
             "}
             .into(),
         )],
+        None,
         None,
     );
     let unit = default_compile(sources);
@@ -1061,6 +1088,7 @@ fn unimplemented_attribute_avoids_ambiguous_error_with_duplicate_names_in_scope(
             .into(),
         )],
         None,
+        None,
     );
     let mut store = PackageStore::new(super::core());
     let lib = compile(
@@ -1091,6 +1119,7 @@ fn unimplemented_attribute_avoids_ambiguous_error_with_duplicate_names_in_scope(
             .into(),
         )],
         None,
+        None,
     );
     let unit = compile(
         &store,
@@ -1118,6 +1147,7 @@ fn duplicate_intrinsic_from_dependency() {
             .into(),
         )],
         None,
+        None,
     );
 
     let mut store = PackageStore::new(super::core());
@@ -1141,6 +1171,7 @@ fn duplicate_intrinsic_from_dependency() {
             "}
             .into(),
         )],
+        None,
         None,
     );
 
@@ -1193,6 +1224,7 @@ fn reject_use_qubit_block_syntax_if_preview_feature_is_on() {
             .into(),
         )],
         Some("Foo.Main()".into()),
+        None,
     );
 
     let unit = compile(
@@ -1248,6 +1280,7 @@ fn accept_use_qubit_block_syntax_if_preview_feature_is_off() {
             .into(),
         )],
         Some("Foo.Main()".into()),
+        None,
     );
 
     let unit = compile(
@@ -1279,6 +1312,7 @@ fn hierarchical_namespace_basic() {
             .into(),
         )],
         None,
+        None,
     );
 
     let store = PackageStore::new(super::core());
@@ -1297,14 +1331,14 @@ fn implicit_namespace_basic() {
     let sources = SourceMap::new(
         [
             (
-                "Test.qs".into(),
+                "src/Test.qs".into(),
                 indoc! {"
                     operation Bar() : Unit {}
             "}
                 .into(),
             ),
             (
-                "Main.qs".into(),
+                "src/Main.qs".into(),
                 indoc! {"
                     @EntryPoint()
                     operation Bar() : Unit {
@@ -1316,7 +1350,7 @@ fn implicit_namespace_basic() {
                 .into(),
             ),
             (
-                "Foo/Bar/Baz.qs".into(),
+                "src/Foo/Bar/Baz.qs".into(),
                 indoc! {"
                     operation Quux() : Unit {}
             "}
@@ -1324,6 +1358,7 @@ fn implicit_namespace_basic() {
             ),
         ],
         None,
+        Some(Rc::from("qsharp.json")),
     );
     let unit = default_compile(sources);
     assert!(unit.errors.is_empty(), "{:#?}", unit.errors);
@@ -1356,6 +1391,7 @@ fn reject_bad_filename_implicit_namespace() {
                 .into(),
             ),
         ],
+        None,
         None,
     );
     let unit = default_compile(sources);

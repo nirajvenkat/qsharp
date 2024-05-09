@@ -4,6 +4,7 @@
 use expect_test::expect;
 use indoc::indoc;
 use qsc::{interpret, LanguageFeatures, SourceMap};
+use std::sync::Arc;
 
 use super::run_internal_with_features;
 
@@ -14,6 +15,9 @@ where
     run_internal_with_features(sources, event_cb, shots, LanguageFeatures::default())
 }
 
+fn construct_sources(code: &str, expr: Option<&str>) -> SourceMap {
+    SourceMap::new([("test.qs".into(), code.into())], expr.map(Arc::from), None)
+}
 #[test]
 fn test_missing_type() {
     let code = "namespace input { operation Foo(a) : Unit {} }";
@@ -21,7 +25,7 @@ fn test_missing_type() {
     let count = std::cell::Cell::new(0);
 
     let _ = run_internal(
-        SourceMap::new([("test.qs".into(), code.into())], Some(expr.into())),
+        construct_sources(code, Some(expr)),
         |msg| {
             expect![[r#"{"result":{"code":"Qsc.TypeCk.MissingItemTy","message":"type error: missing type in item signature\n\nhelp: types cannot be inferred for global declarations","range":{"end":{"character":33,"line":0},"start":{"character":32,"line":0}},"severity":"error"},"success":false,"type":"Result"}"#]].assert_eq(msg);
             count.set(count.get() + 1);
@@ -39,10 +43,7 @@ fn test_compile() {
     M(q)
     }}";
 
-    let result = crate::_get_qir(
-        SourceMap::new([("test.qs".into(), code.into())], None),
-        LanguageFeatures::default(),
-    );
+    let result = crate::_get_qir(construct_sources(code, None), LanguageFeatures::default());
     assert!(result.is_ok());
 }
 
@@ -59,7 +60,7 @@ fn test_run_two_shots() {
     let count = std::cell::Cell::new(0);
 
     let _result = run_internal(
-        SourceMap::new([("test.qs".into(), code.into())], Some(expr.into())),
+        construct_sources(code, Some(expr)),
         |msg| {
             assert!(msg.contains("42"));
             count.set(count.get() + 1);
@@ -83,7 +84,7 @@ fn fail_ry() {
     let count = std::cell::Cell::new(0);
 
     let _result = run_internal(
-        SourceMap::new([("test.qs".into(), code.into())], Some(expr.into())),
+        construct_sources(code, Some(expr)),
         |msg| {
             expect![[r#"{"result":{"code":"Qsc.TypeCk.TyMismatch","message":"type error: expected (Double, Qubit), found Qubit","range":{"end":{"character":18,"line":3},"start":{"character":12,"line":3}},"severity":"error"},"success":false,"type":"Result"}"#]].assert_eq(msg);
             count.set(count.get() + 1);
@@ -105,7 +106,7 @@ fn test_message() {
     }"#;
     let expr = "Sample.main()";
     let result = run_internal(
-        SourceMap::new([("test.qs".into(), code.into())], Some(expr.into())),
+        construct_sources(code, Some(expr)),
         |msg| {
             assert!(msg.contains("hi") || msg.contains("result"));
         },
@@ -126,7 +127,7 @@ fn message_with_escape_sequences() {
     }"#;
     let expr = "Sample.main()";
     let result = run_internal(
-        SourceMap::new([("test.qs".into(), code.into())], Some(expr.into())),
+        construct_sources(code, Some(expr)),
         |msg| {
             assert!(msg.contains(r"\ta\n\t") || msg.contains("result"));
         },
@@ -148,7 +149,7 @@ fn message_with_backslashes() {
     }"#;
     let expr = "Sample.main()";
     let result = run_internal(
-        SourceMap::new([("test.qs".into(), code.into())], Some(expr.into())),
+        construct_sources(code, Some(expr)),
         |msg| {
             assert!(
                 msg.contains("hello { \\\\World [")
@@ -172,7 +173,7 @@ fn test_entrypoint() {
     }"#;
     let expr = "";
     let result = run_internal(
-        SourceMap::new([("test.qs".into(), code.into())], Some(expr.into())),
+        construct_sources(code, Some(expr)),
         |msg| {
             assert!(msg.contains("hi") || msg.contains("result"));
         },
@@ -192,7 +193,7 @@ fn test_missing_entrypoint() {
     }";
     let expr = "";
     let result = run_internal(
-        SourceMap::new([("test.qs".into(), code.into())], Some(expr.into())),
+        construct_sources(code, Some(expr)),
         |msg| {
             expect![[r#"{"result":{"code":"Qsc.EntryPoint.NotFound","message":"entry point not found\n\nhelp: a single callable with the `@EntryPoint()` attribute must be present if no entry expression is provided","range":{"end":{"character":1,"line":0},"start":{"character":0,"line":0}},"severity":"error"},"success":false,"type":"Result"}"#]].assert_eq(msg);
         },
@@ -211,7 +212,7 @@ fn test_run_simple_program_multiple_shots() {
             }"
     };
     run_internal(
-        SourceMap::new([("code".into(), code.into())], None),
+        construct_sources(code, None),
         |s| output.push(s.to_string()),
         3,
     )
@@ -236,7 +237,7 @@ fn test_run_error_program_multiple_shots() {
             }"
     };
     run_internal(
-        SourceMap::new([("test.qs".into(), code.into())], None),
+        construct_sources(code, None),
         |s| output.push(s.to_string()),
         3,
     )
@@ -263,18 +264,18 @@ fn test_run_error_program_multiple_shots_qubit_leak() {
             }"
     };
     run_internal(
-        SourceMap::new([("code".into(), code.into())], None),
+        construct_sources(code, None),
         |s| output.push(s.to_string()),
         100,
     )
     .expect("code should compile and run");
 
     // Spot check the results to make sure we're getting the right error.
-    expect![[r#"{"result":{"code":"Qsc.Eval.ReleasedQubitNotZero","message":"runtime error: Qubit0 released while not in |0⟩ state\n\nhelp: qubits should be returned to the |0⟩ state before being released to satisfy the assumption that allocated qubits start in the |0⟩ state","range":{"end":{"character":24,"line":3},"start":{"character":8,"line":3}},"related":[{"location":{"source":"code","span":{"end":{"character":24,"line":3},"start":{"character":8,"line":3}}},"message":"Qubit0"}],"severity":"error"},"success":false,"type":"Result"}"#]]
+    expect![[r#"{"result":{"code":"Qsc.Eval.ReleasedQubitNotZero","message":"runtime error: Qubit0 released while not in |0⟩ state\n\nhelp: qubits should be returned to the |0⟩ state before being released to satisfy the assumption that allocated qubits start in the |0⟩ state","range":{"end":{"character":24,"line":3},"start":{"character":8,"line":3}},"related":[{"location":{"source":"test.qs","span":{"end":{"character":24,"line":3},"start":{"character":8,"line":3}}},"message":"Qubit0"}],"severity":"error"},"success":false,"type":"Result"}"#]]
         .assert_eq(&output[0]);
-    expect![[r#"{"result":{"code":"Qsc.Eval.ReleasedQubitNotZero","message":"runtime error: Qubit0 released while not in |0⟩ state\n\nhelp: qubits should be returned to the |0⟩ state before being released to satisfy the assumption that allocated qubits start in the |0⟩ state","range":{"end":{"character":24,"line":3},"start":{"character":8,"line":3}},"related":[{"location":{"source":"code","span":{"end":{"character":24,"line":3},"start":{"character":8,"line":3}}},"message":"Qubit0"}],"severity":"error"},"success":false,"type":"Result"}"#]]
+    expect![[r#"{"result":{"code":"Qsc.Eval.ReleasedQubitNotZero","message":"runtime error: Qubit0 released while not in |0⟩ state\n\nhelp: qubits should be returned to the |0⟩ state before being released to satisfy the assumption that allocated qubits start in the |0⟩ state","range":{"end":{"character":24,"line":3},"start":{"character":8,"line":3}},"related":[{"location":{"source":"test.qs","span":{"end":{"character":24,"line":3},"start":{"character":8,"line":3}}},"message":"Qubit0"}],"severity":"error"},"success":false,"type":"Result"}"#]]
         .assert_eq(&output[50]);
-    expect![[r#"{"result":{"code":"Qsc.Eval.ReleasedQubitNotZero","message":"runtime error: Qubit0 released while not in |0⟩ state\n\nhelp: qubits should be returned to the |0⟩ state before being released to satisfy the assumption that allocated qubits start in the |0⟩ state","range":{"end":{"character":24,"line":3},"start":{"character":8,"line":3}},"related":[{"location":{"source":"code","span":{"end":{"character":24,"line":3},"start":{"character":8,"line":3}}},"message":"Qubit0"}],"severity":"error"},"success":false,"type":"Result"}"#]]
+    expect![[r#"{"result":{"code":"Qsc.Eval.ReleasedQubitNotZero","message":"runtime error: Qubit0 released while not in |0⟩ state\n\nhelp: qubits should be returned to the |0⟩ state before being released to satisfy the assumption that allocated qubits start in the |0⟩ state","range":{"end":{"character":24,"line":3},"start":{"character":8,"line":3}},"related":[{"location":{"source":"test.qs","span":{"end":{"character":24,"line":3},"start":{"character":8,"line":3}}},"message":"Qubit0"}],"severity":"error"},"success":false,"type":"Result"}"#]]
         .assert_eq(&output[99]);
 }
 
@@ -290,7 +291,7 @@ fn test_runtime_error_with_span() {
             }"#
     };
     run_internal(
-        SourceMap::new([("test.qs".into(), code.into())], None),
+        construct_sources(code, None),
         |s| output.push(s.to_string()),
         3,
     )
@@ -327,6 +328,7 @@ fn test_runtime_error_in_another_file_with_project() {
                 ("test1.qs".into(), first.into()),
                 ("test2.qs".into(), second.into()),
             ],
+            None,
             None,
         ),
         |s| output.push(s.to_string()),
@@ -365,6 +367,7 @@ fn test_runtime_error_with_failure_in_main_file_project() {
                 ("test2.qs".into(), second.into()),
             ],
             None,
+            None,
         ),
         |s| output.push(s.to_string()),
         1,
@@ -390,7 +393,7 @@ fn test_compile_error_related_spans() {
         "
     };
     run_internal(
-        SourceMap::new([("test.qs".into(), code.into())], None),
+        construct_sources(code, None),
         |s| output.push(s.to_string()),
         1,
     )
@@ -413,7 +416,7 @@ fn test_runtime_error_related_spans() {
         "
     };
     run_internal(
-        SourceMap::new([("test.qs".into(), code.into())], None),
+        construct_sources(code, None),
         |s| output.push(s.to_string()),
         1,
     )
@@ -435,7 +438,7 @@ fn test_runtime_error_default_span() {
         "
     };
     run_internal(
-        SourceMap::new([("test.qs".into(), code.into())], None),
+        construct_sources(code, None),
         |s| output.push(s.to_string()),
         1,
     )

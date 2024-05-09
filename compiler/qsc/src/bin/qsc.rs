@@ -16,6 +16,7 @@ use qsc_frontend::{
 use qsc_hir::hir::{Package, PackageId};
 use qsc_passes::PackageType;
 use qsc_project::{FileSystem, Manifest, StdFs};
+use std::rc::Rc;
 use std::{
     concat, fs,
     io::{self, Read},
@@ -91,6 +92,7 @@ fn main() -> miette::Result<ExitCode> {
         .map(read_source)
         .collect::<miette::Result<Vec<_>>>()?;
 
+    let mut project_root_dir = None;
     if sources.is_empty() {
         let fs = StdFs;
         let manifest = Manifest::load(cli.qsharp_json)?;
@@ -103,11 +105,12 @@ fn main() -> miette::Result<ExitCode> {
             features.merge(LanguageFeatures::from_iter(
                 manifest.manifest.language_features,
             ));
+            project_root_dir = Some(Rc::from(manifest.manifest_dir.to_string_lossy()));
         }
     }
 
     let entry = cli.entry.unwrap_or_default();
-    let sources = SourceMap::new(sources, Some(entry.into()));
+    let sources = SourceMap::new(sources, Some(entry.into()), project_root_dir);
     let (unit, errors) = compile(
         &store,
         &dependencies,

@@ -71,7 +71,7 @@ struct CompilationContext {
 
 impl CompilationContext {
     fn new(source: &str) -> Self {
-        let source_map = SourceMap::new([("test".into(), source.into())], Some("".into()));
+        let source_map = SourceMap::new([("test".into(), source.into())], Some("".into()), None);
         let compiler = Compiler::new(
             true,
             source_map,

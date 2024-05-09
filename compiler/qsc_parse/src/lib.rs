@@ -117,6 +117,7 @@ pub fn namespaces(
     input: &str,
     file_name: Option<&str>,
     language_features: LanguageFeatures,
+    project_root_dir: &Option<Rc<str>>,
 ) -> (Vec<Namespace>, Vec<Error>) {
     let mut scanner = ParserContext::new(input, language_features);
     let doc = parse_doc(&mut scanner);
@@ -129,6 +130,7 @@ pub fn namespaces(
             let mut ns = item::parse_implicit_namespace(
                 file_name.expect("invariant checked above via `.is_some()`"),
                 &mut scanner,
+                project_root_dir,
             )
             .map(|x| vec![x])?;
             if let Some(ref mut ns) = ns.get_mut(0) {

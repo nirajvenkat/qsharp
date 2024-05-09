@@ -15,7 +15,7 @@ fn compile_one_operation(code: &str) -> (Item, String) {
     let std = std(&store, TargetCapabilityFlags::empty());
     let std = store.insert(std);
 
-    let sources = SourceMap::new([("test".into(), code.into())], None);
+    let sources = SourceMap::new([("test".into(), code.into())], None, None);
     let unit = compile(
         &store,
         &[std],

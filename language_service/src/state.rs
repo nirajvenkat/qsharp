@@ -274,6 +274,7 @@ impl<'a> CompilationStateUpdater<'a> {
                 self.configuration.target_profile,
                 language_features,
                 lints_config,
+                Some(Rc::from(&*(compilation_uri.clone()))),
             );
 
             state.compilations.insert(

@@ -253,20 +253,9 @@ async fn compile_error() {
                         1,
                     ),
                     [
-                        Frontend(
-                            Error(
-                                Parse(
-                                    Error(
-                                        Token(
-                                            Eof,
-                                            Ident,
-                                            Span {
-                                                lo: 0,
-                                                hi: 9,
-                                            },
-                                        ),
-                                    ),
-                                ),
+                        Pass(
+                            EntryPoint(
+                                NotFound,
                             ),
                         ),
                     ],
@@ -1061,9 +1050,7 @@ async fn delete_manifest() {
                         offset: 0,
                     },
                 ],
-                project_root_dir: Some(
-                    "project/src/this_file.qs",
-                ),
+                project_root_dir: None,
                 entry: None,
             }
         "#]],
@@ -1226,7 +1213,7 @@ async fn doc_switches_project() {
                     },
                 ],
                 project_root_dir: Some(
-                    "nested_projects/src/subdir/src/",
+                    "nested_projects/src/",
                 ),
                 entry: None,
             }
@@ -1324,7 +1311,7 @@ async fn doc_switches_project_on_close() {
                     },
                 ],
                 project_root_dir: Some(
-                    "nested_projects/src/subdir/src/",
+                    "nested_projects/src/",
                 ),
                 entry: None,
             }

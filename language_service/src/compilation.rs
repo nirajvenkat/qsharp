@@ -15,6 +15,7 @@ use qsc::{
     CompileUnit, LanguageFeatures, PackageStore, PackageType, PassContext, SourceMap, Span,
 };
 use qsc_linter::LintConfig;
+use std::rc::Rc;
 use std::sync::Arc;
 
 /// Represents an immutable compilation state that can be used
@@ -50,6 +51,7 @@ impl Compilation {
         target_profile: Profile,
         language_features: LanguageFeatures,
         lints_config: &[LintConfig],
+        project_root_dir: Option<Rc<str>>,
     ) -> Self {
         if sources.len() == 1 {
             trace!("compiling single-file document {}", sources[0].0);
@@ -57,7 +59,11 @@ impl Compilation {
             trace!("compiling package with {} sources", sources.len());
         }
 
-        let source_map = SourceMap::new(sources.iter().map(|(x, y)| (x.clone(), y.clone())), None);
+        let source_map = SourceMap::new(
+            sources.iter().map(|(x, y)| (x.clone(), y.clone())),
+            None,
+            project_root_dir,
+        );
 
         let mut package_store = PackageStore::new(compile::core());
         let std_package_id =
@@ -216,9 +222,11 @@ impl Compilation {
         language_features: LanguageFeatures,
         lints_config: &[LintConfig],
     ) {
-        let sources = self
-            .user_unit()
-            .sources
+        let sources = &self.user_unit().sources;
+
+        let project_root_dir = sources.project_root_dir.clone();
+
+        let sources = sources
             .iter()
             .map(|source| (source.name.clone(), source.contents.clone()));
 
@@ -229,6 +237,7 @@ impl Compilation {
                 target_profile,
                 language_features,
                 lints_config,
+                project_root_dir,
             ),
             CompilationKind::Notebook => {
                 Self::new_notebook(sources, target_profile, language_features, lints_config)
