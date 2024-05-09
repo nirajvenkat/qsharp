@@ -35,7 +35,7 @@ use qsc_hir::{
     validate::Validator as HirValidator,
     visit::Visitor as _,
 };
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::{fmt::Debug, sync::Arc};
 use thiserror::Error;
@@ -102,11 +102,14 @@ impl SourceMap {
             } else if manifest_path.ends_with("src") || manifest_path.ends_with("src/") {
                 Some(manifest_path.clone())
             } else {
-                let mut project_root_dir_as_path = PathBuf::from(manifest_path.as_ref());
-                project_root_dir_as_path.push("src/");
-                Some(Rc::from(
-                    project_root_dir_as_path.to_string_lossy().to_string(),
-                ))
+                let manifest_path = Path::new(&*manifest_path);
+                if manifest_path.is_dir() || manifest_path.extension().is_none() {
+                    let mut project_root_dir_as_path = manifest_path.to_path_buf();
+                    project_root_dir_as_path.push("src/");
+                    Some(Rc::from(
+                        project_root_dir_as_path.to_string_lossy().to_string(),
+                    ))
+                } else { None }
             }
         } else {
             None
