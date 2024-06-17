@@ -318,6 +318,7 @@ fn map_eval_value_to_value_kind(value: &Value) -> ValueKind {
     }
 }
 
+#[allow(dead_code)]
 pub struct MutableVar {
     pub id: LocalVarId,
     pub kind: MutableKind,

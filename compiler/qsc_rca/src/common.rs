@@ -19,6 +19,7 @@ use std::{
 };
 
 /// A represenation of a local symbol.
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct Local {
     pub var: LocalVarId,
